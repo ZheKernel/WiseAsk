@@ -5,7 +5,7 @@ server:
 
 spring:
   application:
-    name: ragent-service
+    name: ragent${unique-name:}-service
 
   servlet:
     multipart:
@@ -30,6 +30,12 @@ spring:
     redis:
       host: 192.168.70.108
       port: 6379
+
+rocketmq:
+  name-server: 127.0.0.1:9876
+  producer:
+    group: ragent-producer${unique-name:}_pg
+    send-message-timeout: 2000
 
 milvus:
   uri: http://localhost:19530
