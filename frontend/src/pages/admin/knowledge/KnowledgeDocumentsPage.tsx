@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Check, FileUp, FolderOpen, PlayCircle, RefreshCw, Trash2, Pencil, FileBarChart, X } from "lucide-react";
+import { Check, FileUp, FolderOpen, PlayCircle, RefreshCw, Trash2, Pencil, FileBarChart, X, Eye, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -11,7 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,10 +29,12 @@ import {
   startDocumentChunk,
   uploadDocument,
   getChunkStrategies,
-  getChunkLogsPage
+  getChunkLogsPage,
+  previewDocument
 } from "@/services/knowledgeService";
 import { getIngestionPipelines, type IngestionPipeline } from "@/services/ingestionService";
 import { getSystemSettings } from "@/services/settingsService";
+import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { getErrorMessage } from "@/utils/error";
 
 const PAGE_SIZE = 10;
@@ -93,6 +96,16 @@ const formatSize = (size?: number | null) => {
   return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
 };
 
+const parseFrontMatter = (content: string): { head: string | null; body: string } => {
+  if (content.startsWith("---\n")) {
+    const end = content.indexOf("\n---\n", 4);
+    if (end > 0) {
+      return { head: content.substring(4, end), body: content.substring(end + 5) };
+    }
+  }
+  return { head: null, body: content };
+};
+
 const formatSourceLabel = (sourceType?: string | null) => {
   const normalized = sourceType?.toLowerCase();
   if (normalized === "url") return "Remote URL";
@@ -129,12 +142,17 @@ export function KnowledgeDocumentsPage() {
   const [detailStrategies, setDetailStrategies] = useState<ChunkStrategyOption[]>([]);
   const [detailPipelines, setDetailPipelines] = useState<IngestionPipeline[]>([]);
   const [detailConfigValues, setDetailConfigValues] = useState<Record<string, string>>({});
+  const [detailNoChunk, setDetailNoChunk] = useState(false);
+  const [detailOriginalChunkSize, setDetailOriginalChunkSize] = useState("512");
   const [detailSourceLocation, setDetailSourceLocation] = useState("");
   const [detailScheduleEnabled, setDetailScheduleEnabled] = useState(false);
   const [detailScheduleCron, setDetailScheduleCron] = useState("");
   const [logTarget, setLogTarget] = useState<KnowledgeDocument | null>(null);
   const [logData, setLogData] = useState<PageResult<KnowledgeDocumentChunkLog> | null>(null);
   const [logLoading, setLogLoading] = useState(false);
+  const [previewTarget, setPreviewTarget] = useState<KnowledgeDocument | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const documents = pageData?.records || [];
 
@@ -195,6 +213,16 @@ export function KnowledgeDocumentsPage() {
       }
       setDetailConfigValues(values);
 
+      // 如果 chunkSize 为 -1（不分块），初始化开关状态
+      const rawChunkSize = values["chunkSize"];
+      if (rawChunkSize === String(NO_CHUNK_VALUE)) {
+        setDetailNoChunk(true);
+        setDetailOriginalChunkSize("512");
+      } else {
+        setDetailNoChunk(false);
+        setDetailOriginalChunkSize(rawChunkSize || "512");
+      }
+
       // 加载策略列表和管道列表
       getChunkStrategies().then(setDetailStrategies).catch(() => {});
       getIngestionPipelines(1, 100).then(r => setDetailPipelines(r.records || [])).catch(() => {});
@@ -209,6 +237,8 @@ export function KnowledgeDocumentsPage() {
       setDetailSourceLocation("");
       setDetailScheduleEnabled(false);
       setDetailScheduleCron("");
+      setDetailNoChunk(false);
+      setDetailOriginalChunkSize("512");
     }
   }, [detailTarget]);
 
@@ -328,6 +358,21 @@ export function KnowledgeDocumentsPage() {
     loadChunkLogs(String(doc.id));
   };
 
+  const handlePreview = async (doc: KnowledgeDocument) => {
+    setPreviewTarget(doc);
+    setPreviewContent("");
+    setPreviewLoading(true);
+    try {
+      const content = await previewDocument(String(doc.id));
+      setPreviewContent(content);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "加载预览失败"));
+      setPreviewTarget(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const formatDuration = (ms?: number | null) => {
     if (!ms && ms !== 0) return "-";
     if (ms < 1000) return `${ms}ms`;
@@ -355,6 +400,35 @@ export function KnowledgeDocumentsPage() {
         values[k] = String(v);
       }
       setDetailConfigValues(values);
+      setDetailNoChunk(false);
+      setDetailOriginalChunkSize(
+        strategy.defaultConfig["chunkSize"] !== undefined
+          ? String(strategy.defaultConfig["chunkSize"])
+          : "512"
+      );
+    }
+  };
+
+  // 处理编辑页"不分块"按钮点击
+  const handleDetailNoChunkToggle = () => {
+    if (detailNoChunk) {
+      // 取消选中，恢复原始值
+      setDetailConfigValues(v => ({ ...v, chunkSize: detailOriginalChunkSize }));
+      setDetailNoChunk(false);
+    } else {
+      // 选中，保存当前值并设置为-1
+      const currentSize = detailConfigValues["chunkSize"] || "512";
+      setDetailOriginalChunkSize(currentSize);
+      setDetailConfigValues(v => ({ ...v, chunkSize: String(NO_CHUNK_VALUE) }));
+      setDetailNoChunk(true);
+    }
+  };
+
+  // 用户手动修改块大小值时取消"不分块"状态
+  const handleDetailChunkSizeChange = (value: string) => {
+    setDetailConfigValues(v => ({ ...v, chunkSize: value }));
+    if (detailNoChunk && value !== String(NO_CHUNK_VALUE)) {
+      setDetailNoChunk(false);
     }
   };
 
@@ -427,19 +501,17 @@ export function KnowledgeDocumentsPage() {
           ) : documents.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">暂无文档</div>
           ) : (
-            <Table className="min-w-[1120px]">
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[260px]">文档</TableHead>
-                  <TableHead className="w-[120px]">来源</TableHead>
-                  <TableHead className="w-[120px]">处理模式</TableHead>
-                  <TableHead className="w-[120px]">状态</TableHead>
-                  <TableHead className="w-[80px]">启用</TableHead>
-                  <TableHead className="w-[90px]">分块数</TableHead>
-                  <TableHead className="w-[90px]">类型</TableHead>
-                  <TableHead className="w-[90px]">大小</TableHead>
-                  <TableHead className="w-[170px]">更新时间</TableHead>
-                  <TableHead className="w-[160px] text-left">操作</TableHead>
+                  <TableHead className="w-[130px]">来源 · 模式</TableHead>
+                  <TableHead className="w-[110px]">状态</TableHead>
+                  <TableHead className="w-[70px]">启用</TableHead>
+                  <TableHead className="w-[80px]">分块数</TableHead>
+                  <TableHead className="w-[120px]">类型 · 大小</TableHead>
+                  <TableHead className="w-[160px]">更新时间</TableHead>
+                  <TableHead className="w-[180px] text-left">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,12 +532,7 @@ export function KnowledgeDocumentsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-muted-foreground">
-                        {formatSourceLabel(doc.sourceType)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-muted-foreground">
-                        {doc.processMode || "-"}
+                        {formatSourceLabel(doc.sourceType)}{doc.processMode ? ` · ${doc.processMode}` : ""}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -500,14 +567,29 @@ export function KnowledgeDocumentsPage() {
                       })()}
                     </TableCell>
                     <TableCell>{doc.chunkCount ?? "-"}</TableCell>
-                    <TableCell>{doc.fileType || "-"}</TableCell>
-                    <TableCell>{formatSize(doc.fileSize)}</TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground">
+                        {doc.fileType || "-"}{doc.fileSize ? ` · ${formatSize(doc.fileSize)}` : ""}
+                      </span>
+                    </TableCell>
                     <TableCell>{formatDate(doc.updateTime)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                    <TableCell>
+                      <div className="flex items-center gap-0.5">
+                        {doc.fileType === "markdown" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-1.5 text-xs"
+                            onClick={() => handlePreview(doc)}
+                          >
+                            <Eye className="mr-1 h-3.5 w-3.5" />
+                            预览
+                          </Button>
+                        ) : null}
                         <Button
-                          size="icon"
+                          size="sm"
                           variant="ghost"
+                          className="h-7 px-1.5 text-xs"
                           onClick={async () => {
                             try {
                               const detail = await getDocument(String(doc.id));
@@ -516,35 +598,39 @@ export function KnowledgeDocumentsPage() {
                               toast.error(getErrorMessage(error, "加载文档详情失败"));
                             }
                           }}
-                          title="编辑"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="mr-1 h-3.5 w-3.5" />
+                          编辑
                         </Button>
                         <Button
-                          size="icon"
+                          size="sm"
                           variant="ghost"
+                          className="h-7 px-1.5 text-xs"
                           onClick={() => setChunkTarget(doc)}
-                          title="分块"
                         >
-                          <PlayCircle className="h-4 w-4" />
+                          <PlayCircle className="mr-1 h-3.5 w-3.5" />
+                          分块
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleOpenChunkLogs(doc)}
-                          title="分块详情"
-                        >
-                          <FileBarChart className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget(doc)}
-                          title="删除"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="更多">
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenChunkLogs(doc)}>
+                              <FileBarChart className="mr-2 h-4 w-4" />
+                              分块详情
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteTarget(doc)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -733,17 +819,40 @@ export function KnowledgeDocumentsPage() {
                   </div>
 
                   {detailChunkStrategy === "fixed_size" ? (
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-3">
                       <div>
                         <div className="text-sm font-medium mb-2">块大小</div>
                         <Input type="number" value={detailConfigValues["chunkSize"] ?? "512"}
-                          onChange={e => setDetailConfigValues(v => ({ ...v, chunkSize: e.target.value }))} />
+                          onChange={e => handleDetailChunkSizeChange(e.target.value)} />
                         <div className="text-sm text-muted-foreground mt-1">字符数</div>
                       </div>
                       <div>
                         <div className="text-sm font-medium mb-2">重叠大小</div>
                         <Input type="number" value={detailConfigValues["overlapSize"] ?? "128"}
                           onChange={e => setDetailConfigValues(v => ({ ...v, overlapSize: e.target.value }))} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium mb-2">不分块</div>
+                        <div className="flex h-9 items-center">
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={detailNoChunk}
+                            onClick={handleDetailNoChunkToggle}
+                            className={cn(
+                              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+                              detailNoChunk ? "bg-blue-600" : "bg-slate-200"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform",
+                                detailNoChunk ? "translate-x-4" : "translate-x-1"
+                              )}
+                            />
+                          </button>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">开启后块大小为-1</div>
                       </div>
                     </div>
                   ) : (
@@ -785,6 +894,36 @@ export function KnowledgeDocumentsPage() {
               {detailSaving ? "保存中..." : "保存"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(previewTarget)} onOpenChange={(open) => (!open ? setPreviewTarget(null) : null)}>
+        <DialogContent hideClose className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[900px] p-0" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); requestAnimationFrame(() => (document.activeElement as HTMLElement)?.blur()); }}>
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-card px-6 py-3">
+            <span className="text-sm font-medium text-muted-foreground truncate">{previewTarget?.docName || "预览"}</span>
+            <DialogClose className="rounded-md p-1.5 opacity-50 transition-all hover:opacity-100 hover:bg-muted focus-visible:outline-none">
+              <X className="h-3.5 w-3.5" />
+            </DialogClose>
+          </div>
+          {previewLoading ? (
+            <div className="py-8 text-center text-muted-foreground">加载中...</div>
+          ) : previewContent ? (
+            (() => {
+              const { head, body } = parseFrontMatter(previewContent);
+              return (
+                <div className="flex-1 overflow-y-auto sidebar-scroll">
+                  {head ? (
+                    <pre className="mx-6 mt-4 overflow-auto rounded-lg border bg-slate-50 px-4 py-3 font-mono text-xs leading-relaxed text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                      {head}
+                    </pre>
+                  ) : null}
+                  <div className="px-6 py-4">
+                    <MarkdownRenderer content={body} />
+                  </div>
+                </div>
+              );
+            })()
+          ) : null}
         </DialogContent>
       </Dialog>
 

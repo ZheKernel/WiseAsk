@@ -456,7 +456,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 ChunkingMode chunkingMode = ChunkingMode.fromValue(requestParam.getChunkStrategy());
                 String chunkConfig = validateAndNormalizeChunkConfig(chunkingMode, requestParam.getChunkConfig());
                 updateWrapper.set(KnowledgeDocumentDO::getChunkStrategy, chunkingMode.getValue());
-                updateWrapper.set(KnowledgeDocumentDO::getChunkConfig, chunkConfig);
+                updateWrapper.setSql("chunk_config = CAST({0} AS jsonb)", chunkConfig);
                 updateWrapper.set(KnowledgeDocumentDO::getPipelineId, null);
             } else {
                 if (!StringUtils.hasText(requestParam.getPipelineId())) {
@@ -790,6 +790,22 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         } catch (Exception e) {
             log.warn("分块参数解析失败: {}", json, e);
             return Map.of();
+        }
+    }
+
+    @Override
+    public String preview(String docId) {
+        KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
+        Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        if (!"markdown".equalsIgnoreCase(documentDO.getFileType())) {
+            throw new ClientException("仅支持预览 markdown 格式文档");
+        }
+        try (InputStream in = fileStorageService.openStream(documentDO.getFileUrl())) {
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (ClientException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ClientException("读取文档内容失败: " + e.getMessage());
         }
     }
 
