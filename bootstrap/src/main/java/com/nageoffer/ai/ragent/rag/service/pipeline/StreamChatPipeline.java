@@ -76,25 +76,24 @@ public class StreamChatPipeline {
      * 执行流式对话管道
      */
     public void execute(StreamChatContext ctx) {
-        loadMemory(ctx);
-        rewriteQuery(ctx);
-        resolveIntents(ctx);
+        loadMemory(ctx);  //加载会话记忆
+        rewriteQuery(ctx);  //查询改写与子问题拆分
+        resolveIntents(ctx);  //意图识别
 
-        if (handleGuidance(ctx)) {
+        if (handleGuidance(ctx)) {  //歧义引导
             return;
         }
-        if (handleSystemOnly(ctx)) {
-            return;
-        }
-
-        RetrievalContext retrievalCtx = retrieve(ctx);
-        if (handleEmptyRetrieval(ctx, retrievalCtx)) {
+        if (handleSystemOnly(ctx)) {  //系统直答
             return;
         }
 
-        streamRagResponse(ctx, retrievalCtx);
+        RetrievalContext retrievalCtx = retrieve(ctx);  //多通道检索
+        if (handleEmptyRetrieval(ctx, retrievalCtx)) {  //空结果兜底
+            return;
+        }
+
+        streamRagResponse(ctx, retrievalCtx);  //Prompt 组装与流式生成
     }
-
     // ==================== 流水线阶段 ====================
 
     private void loadMemory(StreamChatContext ctx) {
