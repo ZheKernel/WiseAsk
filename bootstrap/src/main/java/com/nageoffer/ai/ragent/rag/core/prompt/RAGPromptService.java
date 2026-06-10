@@ -76,7 +76,7 @@ public class RAGPromptService {
             messages.add(ChatMessage.system(systemPrompt));
         }
 
-        // 2. 对话历史（含摘要，摘要作为 history[0] 的 system message 自然紧跟系统提示词）
+        // 2. 最近原文历史。压缩摘要作为证据数据块放入最终 user message，避免污染 system 前缀。
         if (CollUtil.isNotEmpty(history)) {
             messages.addAll(history);
         }
@@ -218,16 +218,28 @@ public class RAGPromptService {
      */
     private String buildEvidenceBody(PromptContext context) {
         StringBuilder sb = new StringBuilder();
+        if (StrUtil.isNotBlank(context.getConversationSummary())) {
+            appendEvidenceSection(sb, renderSection("summary-wrapper", Map.of(
+                    "content", context.getConversationSummary().trim()
+            )));
+        }
         if (StrUtil.isNotBlank(context.getMcpContext())) {
-            sb.append(renderSection("mcp-evidence", Map.of("body", context.getMcpContext().trim())));
+            appendEvidenceSection(sb, renderSection("mcp-evidence", Map.of("body", context.getMcpContext().trim())));
         }
         if (StrUtil.isNotBlank(context.getKbContext())) {
-            if (!sb.isEmpty()) {
-                sb.append("\n\n");
-            }
-            sb.append(renderSection("kb-evidence", Map.of("body", context.getKbContext().trim())));
+            appendEvidenceSection(sb, renderSection("kb-evidence", Map.of("body", context.getKbContext().trim())));
         }
         return sb.toString().trim();
+    }
+
+    private void appendEvidenceSection(StringBuilder sb, String section) {
+        if (StrUtil.isBlank(section)) {
+            return;
+        }
+        if (!sb.isEmpty()) {
+            sb.append("\n\n");
+        }
+        sb.append(section);
     }
 
     private String renderSection(String section, Map<String, String> slots) {

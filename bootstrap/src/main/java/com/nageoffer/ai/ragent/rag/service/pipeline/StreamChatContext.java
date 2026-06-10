@@ -49,6 +49,9 @@ public class StreamChatContext {
     private List<ChatMessage> history;
 
     @Setter
+    private String conversationSummary;
+
+    @Setter
     private RewriteResult rewriteResult;
 
     @Setter

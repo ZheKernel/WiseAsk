@@ -19,9 +19,18 @@ package com.nageoffer.ai.ragent.rag.core.memory;
 
 import com.nageoffer.ai.ragent.framework.convention.ChatMessage;
 
-public interface ConversationMemorySummaryService {
+import java.util.List;
 
-    void compressIfNeeded(String conversationId, String userId, ChatMessage message);
+/**
+ * 对话记忆上下文：把压缩摘要和最近原文历史分开承载。
+ */
+public record ConversationMemoryContext(String summary, List<ChatMessage> recentHistory) {
 
-    String loadLatestSummary(String conversationId, String userId);
+    public ConversationMemoryContext {
+        recentHistory = recentHistory == null ? List.of() : List.copyOf(recentHistory);
+    }
+
+    public static ConversationMemoryContext empty() {
+        return new ConversationMemoryContext(null, List.of());
+    }
 }

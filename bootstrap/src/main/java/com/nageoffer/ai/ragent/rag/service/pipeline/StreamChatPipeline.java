@@ -27,6 +27,7 @@ import com.nageoffer.ai.ragent.infra.chat.StreamCancellationHandle;
 import com.nageoffer.ai.ragent.rag.core.guidance.GuidanceDecision;
 import com.nageoffer.ai.ragent.rag.core.guidance.IntentGuidanceService;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentResolver;
+import com.nageoffer.ai.ragent.rag.core.memory.ConversationMemoryContext;
 import com.nageoffer.ai.ragent.rag.core.memory.ConversationMemoryService;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptContext;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptTemplateLoader;
@@ -97,12 +98,13 @@ public class StreamChatPipeline {
     // ==================== 流水线阶段 ====================
 
     private void loadMemory(StreamChatContext ctx) {
-        List<ChatMessage> history = memoryService.loadAndAppend(
+        ConversationMemoryContext memoryContext = memoryService.loadContextAndAppend(
                 ctx.getConversationId(),
                 ctx.getUserId(),
                 ChatMessage.user(ctx.getQuestion())
         );
-        ctx.setHistory(history);
+        ctx.setConversationSummary(memoryContext.summary());
+        ctx.setHistory(memoryContext.recentHistory());
     }
 
     private void rewriteQuery(StreamChatContext ctx) {
@@ -174,6 +176,7 @@ public class StreamChatPipeline {
                 ctx.getRewriteResult(),
                 retrievalCtx,
                 mergedGroup,
+                ctx.getConversationSummary(),
                 ctx.getHistory(),
                 ctx.isDeepThinking(),
                 ctx.getCallback()
@@ -205,10 +208,12 @@ public class StreamChatPipeline {
     }
 
     private StreamCancellationHandle streamLLMResponse(RewriteResult rewriteResult, RetrievalContext ctx,
-                                                       IntentGroup intentGroup, List<ChatMessage> history,
+                                                       IntentGroup intentGroup, String conversationSummary,
+                                                       List<ChatMessage> history,
                                                        boolean deepThinking, StreamCallback callback) {
         PromptContext promptContext = PromptContext.builder()
                 .question(rewriteResult.rewrittenQuestion())
+                .conversationSummary(conversationSummary)
                 .mcpContext(ctx.getMcpContext())
                 .kbContext(ctx.getKbContext())
                 .mcpIntents(intentGroup.mcpIntents())

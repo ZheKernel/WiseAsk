@@ -44,7 +44,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.CONTEXT_FORMAT_PATH;
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.CONVERSATION_SUMMARY_PROMPT_PATH;
 
 @Slf4j
@@ -79,21 +78,9 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
     }
 
     @Override
-    public ChatMessage loadLatestSummary(String conversationId, String userId) {
+    public String loadLatestSummary(String conversationId, String userId) {
         ConversationSummaryDO summary = conversationGroupService.findLatestSummary(conversationId, userId);
-        return toChatMessage(summary);
-    }
-
-    @Override
-    public ChatMessage decorateIfNeeded(ChatMessage summary) {
-        if (summary == null || StrUtil.isBlank(summary.getContent())) {
-            return summary;
-        }
-        String wrapped = promptTemplateLoader.renderSection(
-                CONTEXT_FORMAT_PATH, "summary-wrapper",
-                Map.of("content", summary.getContent().trim())
-        );
-        return ChatMessage.system(wrapped);
+        return toSummaryText(summary);
     }
 
     private void doCompressIfNeeded(String conversationId, String userId) {
@@ -231,11 +218,11 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
                 .collect(Collectors.toList());
     }
 
-    private ChatMessage toChatMessage(ConversationSummaryDO record) {
+    private String toSummaryText(ConversationSummaryDO record) {
         if (record == null || StrUtil.isBlank(record.getContent())) {
             return null;
         }
-        return new ChatMessage(ChatMessage.Role.SYSTEM, record.getContent());
+        return record.getContent().trim();
     }
 
     private String resolveSummaryStartId(String conversationId, String userId, ConversationSummaryDO summary) {
