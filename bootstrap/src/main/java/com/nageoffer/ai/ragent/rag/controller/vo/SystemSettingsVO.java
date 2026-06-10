@@ -148,6 +148,8 @@ public class SystemSettingsVO {
         private Boolean summaryEnabled;
         private Integer summaryStartTurns;
         private Integer summaryMaxChars;
+        private Integer summaryUpdateMinTurns;
+        private Integer summaryTriggerInputTokens;
         private Integer titleMaxLength;
     }
 

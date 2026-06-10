@@ -103,6 +103,8 @@ public class RAGSettingsController {
                 .summaryEnabled(props.getSummaryEnabled())
                 .summaryStartTurns(props.getSummaryStartTurns())
                 .summaryMaxChars(props.getSummaryMaxChars())
+                .summaryUpdateMinTurns(props.getSummaryUpdateMinTurns())
+                .summaryTriggerInputTokens(props.getSummaryTriggerInputTokens())
                 .titleMaxLength(props.getTitleMaxLength())
                 .build();
     }

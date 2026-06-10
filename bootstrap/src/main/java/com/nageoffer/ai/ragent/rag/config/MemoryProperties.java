@@ -62,6 +62,20 @@ public class MemoryProperties {
     private Integer summaryMaxChars = 200;
 
     /**
+     * 增量摘要至少累积的新增用户轮数，避免每轮都改写摘要破坏 KV 缓存命中
+     */
+    @Min(1)
+    @Max(100)
+    private Integer summaryUpdateMinTurns = 6;
+
+    /**
+     * 待压缩内容达到该 Token 量时提前更新摘要，用于兜住超长上下文
+     */
+    @Min(500)
+    @Max(200000)
+    private Integer summaryTriggerInputTokens = 12000;
+
+    /**
      * 会话标题最大长度（用于提示词约束）
      */
     @Min(10)

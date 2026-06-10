@@ -22,6 +22,7 @@ import cn.hutool.core.util.StrUtil;
 import com.nageoffer.ai.ragent.framework.convention.ChatMessage;
 import com.nageoffer.ai.ragent.framework.convention.ChatRequest;
 import com.nageoffer.ai.ragent.infra.chat.LLMService;
+import com.nageoffer.ai.ragent.infra.token.TokenCounterService;
 import com.nageoffer.ai.ragent.rag.config.MemoryProperties;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptTemplateLoader;
 import com.nageoffer.ai.ragent.rag.dao.entity.ConversationMessageDO;
@@ -52,11 +53,14 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.CONVERSATION_SUMM
 public class JdbcConversationMemorySummaryService implements ConversationMemorySummaryService {
 
     private static final String SUMMARY_LOCK_PREFIX = "ragent:memory:summary:lock:";
+    private static final int DEFAULT_SUMMARY_UPDATE_MIN_TURNS = 6;
+    private static final int DEFAULT_SUMMARY_TRIGGER_INPUT_TOKENS = 12000;
 
     private final ConversationGroupService conversationGroupService;
     private final ConversationMessageService conversationMessageService;
     private final MemoryProperties memoryProperties;
     private final LLMService llmService;
+    private final TokenCounterService tokenCounterService;
     private final PromptTemplateLoader promptTemplateLoader;
     private final RedissonClient redissonClient;
     private final Executor memorySummaryExecutor;
@@ -137,6 +141,29 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
             }
 
             String existingSummary = latestSummary == null ? "" : latestSummary.getContent();
+            long userTurnsSinceSummary = countUserTurns(toSummarize);
+            int estimatedInputTokens = estimateInputTokens(toSummarize, existingSummary);
+            int updateMinTurns = valueOrDefault(
+                    memoryProperties.getSummaryUpdateMinTurns(),
+                    DEFAULT_SUMMARY_UPDATE_MIN_TURNS
+            );
+            int triggerInputTokens = valueOrDefault(
+                    memoryProperties.getSummaryTriggerInputTokens(),
+                    DEFAULT_SUMMARY_TRIGGER_INPUT_TOKENS
+            );
+            if (!SummaryCheckpointPolicy.shouldSummarize(
+                    latestSummary != null,
+                    userTurnsSinceSummary,
+                    estimatedInputTokens,
+                    updateMinTurns,
+                    triggerInputTokens
+            )) {
+                log.debug("跳过摘要 checkpoint - conversationId: {}, userId: {}, 新增用户轮数: {}, 估算Token: {}, 轮数阈值: {}, Token阈值: {}",
+                        conversationId, userId, userTurnsSinceSummary, estimatedInputTokens, updateMinTurns,
+                        triggerInputTokens);
+                return;
+            }
+
             String summary = summarizeMessages(toSummarize, existingSummary);
             if (StrUtil.isBlank(summary)) {
                 return;
@@ -218,6 +245,44 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
                 .collect(Collectors.toList());
     }
 
+    private long countUserTurns(List<ConversationMessageDO> messages) {
+        if (CollUtil.isEmpty(messages)) {
+            return 0;
+        }
+        return messages.stream()
+                .filter(item -> item != null && "user".equalsIgnoreCase(item.getRole()))
+                .count();
+    }
+
+    private int estimateInputTokens(List<ConversationMessageDO> messages, String existingSummary) {
+        int total = countTokensWithFallback(existingSummary);
+        if (CollUtil.isEmpty(messages)) {
+            return total;
+        }
+        for (ConversationMessageDO message : messages) {
+            if (message == null) {
+                continue;
+            }
+            total += countTokensWithFallback(message.getContent());
+        }
+        return total;
+    }
+
+    private int countTokensWithFallback(String content) {
+        if (StrUtil.isBlank(content)) {
+            return 0;
+        }
+        try {
+            Integer tokens = tokenCounterService.countTokens(content);
+            if (tokens != null && tokens >= 0) {
+                return tokens;
+            }
+        } catch (Exception e) {
+            log.debug("摘要 checkpoint Token 估算失败，使用字符数兜底", e);
+        }
+        return Math.max((content.length() + 3) / 4, 1);
+    }
+
     private String toSummaryText(ConversationSummaryDO record) {
         if (record == null || StrUtil.isBlank(record.getContent())) {
             return null;
@@ -275,5 +340,9 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
 
     private String buildLockKey(String conversationId, String userId) {
         return userId.trim() + ":" + conversationId.trim();
+    }
+
+    private int valueOrDefault(Integer value, int defaultValue) {
+        return value == null ? defaultValue : value;
     }
 }
