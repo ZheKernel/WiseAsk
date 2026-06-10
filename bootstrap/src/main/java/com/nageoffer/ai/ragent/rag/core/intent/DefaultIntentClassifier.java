@@ -36,11 +36,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,6 +54,16 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.INTENT_CLASSIFIER
 @Service
 @RequiredArgsConstructor
 public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegistry {
+
+    private static final Comparator<IntentNode> INTENT_NODE_ORDER = Comparator
+            .comparing(IntentNode::getSortOrder, Comparator.nullsLast(Integer::compareTo))
+            .thenComparing(IntentNode::getId, Comparator.nullsLast(String::compareTo))
+            .thenComparing(IntentNode::getName, Comparator.nullsLast(String::compareTo));
+
+    private static final Comparator<IntentNodeDO> INTENT_NODE_DO_ORDER = Comparator
+            .comparing(IntentNodeDO::getSortOrder, Comparator.nullsLast(Integer::compareTo))
+            .thenComparing(IntentNodeDO::getIntentCode, Comparator.nullsLast(String::compareTo))
+            .thenComparing(IntentNodeDO::getId, Comparator.nullsLast(String::compareTo));
 
     private final LLMService llmService;
     private final IntentNodeMapper intentNodeMapper;
@@ -83,12 +91,15 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
             return new IntentTreeData(List.of(), List.of(), Map.of());
         }
 
+        sortIntentTree(roots);
         List<IntentNode> allNodes = flatten(roots);
         List<IntentNode> leafNodes = allNodes.stream()
                 .filter(IntentNode::isLeaf)
                 .collect(Collectors.toList());
-        Map<String, IntentNode> id2Node = allNodes.stream()
-                .collect(Collectors.toMap(IntentNode::getId, n -> n));
+        Map<String, IntentNode> id2Node = new LinkedHashMap<>();
+        for (IntentNode node : allNodes) {
+            id2Node.put(node.getId(), node);
+        }
 
         log.debug("意图树数据加载完成, 总节点数: {}, 叶子节点数: {}", allNodes.size(), leafNodes.size());
 
@@ -116,17 +127,26 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
 
     private List<IntentNode> flatten(List<IntentNode> roots) {
         List<IntentNode> result = new ArrayList<>();
-        Deque<IntentNode> stack = new ArrayDeque<>(roots);
-        while (!stack.isEmpty()) {
-            IntentNode n = stack.pop();
-            result.add(n);
-            if (n.getChildren() != null) {
-                for (IntentNode child : n.getChildren()) {
-                    stack.push(child);
-                }
-            }
+        if (roots == null) {
+            return result;
+        }
+        for (IntentNode root : roots) {
+            flattenPreOrder(root, result);
         }
         return result;
+    }
+
+    private void flattenPreOrder(IntentNode node, List<IntentNode> result) {
+        if (node == null) {
+            return;
+        }
+        result.add(node);
+        if (node.getChildren() == null || node.getChildren().isEmpty()) {
+            return;
+        }
+        for (IntentNode child : node.getChildren()) {
+            flattenPreOrder(child, result);
+        }
     }
 
     /**
@@ -271,14 +291,16 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
         if (intentNodeDOList.isEmpty()) {
             return List.of();
         }
+        intentNodeDOList.sort(INTENT_NODE_DO_ORDER);
 
         // 2. DO -> IntentNode（第一遍：先把所有节点建出来，放到 map 里）
-        Map<String, IntentNode> id2Node = new HashMap<>();
+        Map<String, IntentNode> id2Node = new LinkedHashMap<>();
         for (IntentNodeDO each : intentNodeDOList) {
             IntentNode node = BeanUtil.toBean(each, IntentNode.class);
             // 数据库中的 code 映射到 IntentNode 的 id/parentId
             node.setId(each.getIntentCode());
             node.setParentId(each.getParentCode());
+            node.setSortOrder(each.getSortOrder());
             node.setMcpToolId(each.getMcpToolId());
             node.setParamPromptTemplate(each.getParamPromptTemplate());
             // 确保 children 不为 null（避免后面 add NPE）
@@ -312,10 +334,22 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
             parent.getChildren().add(node);
         }
 
+        sortIntentTree(roots);
+
         // 4. 填充 fullPath（跟你原来的 fillFullPath 一样的逻辑）
         fillFullPath(roots, null);
 
         return roots;
+    }
+
+    private void sortIntentTree(List<IntentNode> nodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return;
+        }
+        nodes.sort(INTENT_NODE_ORDER);
+        for (IntentNode node : nodes) {
+            sortIntentTree(node.getChildren());
+        }
     }
 
     /**
