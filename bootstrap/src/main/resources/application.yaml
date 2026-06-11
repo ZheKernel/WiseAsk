@@ -67,6 +67,8 @@ rag:
     summary-start-turns: 5
     summary-enabled: true
     summary-max-chars: 200
+    summary-update-min-turns: 6
+    summary-trigger-input-tokens: 12000
     title-max-length: 30
 
   semaphore:
