@@ -42,7 +42,7 @@ public class MemoryProperties {
      */
     @Min(1)
     @Max(100)
-    private Integer historyKeepTurns = 8;
+    private Integer historyKeepTurns = 4;
 
     /**
      * 是否启用对话记忆压缩
@@ -52,7 +52,7 @@ public class MemoryProperties {
     /**
      * 开始摘要的轮数阈值
      */
-    private Integer summaryStartTurns = 9;
+    private Integer summaryStartTurns = 8;
 
     /**
      * 摘要最大字数
