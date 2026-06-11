@@ -18,11 +18,8 @@
 package com.nageoffer.ai.ragent.rag.core.memory;
 
 import com.nageoffer.ai.ragent.framework.convention.ChatMessage;
-import com.nageoffer.ai.ragent.rag.config.MemoryProperties;
-import com.nageoffer.ai.ragent.rag.controller.vo.ConversationMessageVO;
 import com.nageoffer.ai.ragent.rag.dao.entity.ConversationMessageDO;
 import com.nageoffer.ai.ragent.rag.dao.entity.ConversationSummaryDO;
-import com.nageoffer.ai.ragent.rag.enums.ConversationMessageOrder;
 import com.nageoffer.ai.ragent.rag.service.ConversationGroupService;
 import com.nageoffer.ai.ragent.rag.service.ConversationMessageService;
 import com.nageoffer.ai.ragent.rag.service.ConversationService;
@@ -31,9 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -48,8 +43,7 @@ class JdbcConversationMemoryStoreTest {
         JdbcConversationMemoryStore store = new JdbcConversationMemoryStore(
                 conversationService,
                 messageService,
-                groupService,
-                new MemoryProperties()
+                groupService
         );
         when(groupService.findLatestSummary("conv-1", "user-1")).thenReturn(ConversationSummaryDO.builder()
                 .lastMessageId("100")
@@ -72,31 +66,36 @@ class JdbcConversationMemoryStoreTest {
     }
 
     @Test
-    void shouldFallbackToFixedRecentHistoryWhenNoSummaryExists() {
+    void shouldLoadAllRawHistoryWhenNoSummaryExists() {
         ConversationService conversationService = mock(ConversationService.class);
         ConversationMessageService messageService = mock(ConversationMessageService.class);
         ConversationGroupService groupService = mock(ConversationGroupService.class);
-        MemoryProperties memoryProperties = new MemoryProperties();
-        memoryProperties.setHistoryKeepTurns(4);
         JdbcConversationMemoryStore store = new JdbcConversationMemoryStore(
                 conversationService,
                 messageService,
-                groupService,
-                memoryProperties
+                groupService
         );
         when(groupService.findLatestSummary("conv-1", "user-1")).thenReturn(null);
-        when(messageService.listMessages("conv-1", "user-1", 8, ConversationMessageOrder.DESC)).thenReturn(List.of(
-                messageVO("user", "最近问题"),
-                messageVO("assistant", "最近回答")
+        when(groupService.listMessagesBetweenIds("conv-1", "user-1", null, null)).thenReturn(List.of(
+                messageDO("1", "user", "第 1 轮问题"),
+                messageDO("2", "assistant", "第 1 轮回答"),
+                messageDO("3", "user", "第 2 轮问题"),
+                messageDO("4", "assistant", "第 2 轮回答"),
+                messageDO("5", "user", "第 3 轮问题"),
+                messageDO("6", "assistant", "第 3 轮回答"),
+                messageDO("7", "user", "第 4 轮问题"),
+                messageDO("8", "assistant", "第 4 轮回答"),
+                messageDO("9", "user", "第 5 轮问题"),
+                messageDO("10", "assistant", "第 5 轮回答")
         ));
 
         List<ChatMessage> history = store.loadHistory("conv-1", "user-1");
 
-        Assertions.assertEquals(2, history.size());
-        Assertions.assertEquals("最近问题", history.get(0).getContent());
-        Assertions.assertEquals("最近回答", history.get(1).getContent());
-        verify(messageService).listMessages("conv-1", "user-1", 8, ConversationMessageOrder.DESC);
-        verify(groupService, never()).listMessagesBetweenIds(any(), any(), any(), any());
+        Assertions.assertEquals(10, history.size());
+        Assertions.assertEquals("第 1 轮问题", history.get(0).getContent());
+        Assertions.assertEquals("第 5 轮回答", history.get(9).getContent());
+        verify(groupService).listMessagesBetweenIds("conv-1", "user-1", null, null);
+        verifyNoInteractions(messageService);
     }
 
     private ConversationMessageDO messageDO(String id, String role, String content) {
@@ -107,10 +106,4 @@ class JdbcConversationMemoryStoreTest {
                 .build();
     }
 
-    private ConversationMessageVO messageVO(String role, String content) {
-        return ConversationMessageVO.builder()
-                .role(role)
-                .content(content)
-                .build();
-    }
 }
