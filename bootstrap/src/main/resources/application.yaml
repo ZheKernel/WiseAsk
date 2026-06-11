@@ -17,7 +17,7 @@ spring:
     type: com.zaxxer.hikari.HikariDataSource
     username: postgres
     password: postgres
-    url: jdbc:postgresql://192.168.70.108:5432/ragent?client_encoding=UTF8
+    url: jdbc:postgresql://127.0.0.1:5432/ragent?client_encoding=UTF8
     hikari:
       connection-timeout: 5000
       idle-timeout: 600000
@@ -28,8 +28,9 @@ spring:
 
   data:
     redis:
-      host: 192.168.70.108
+      host: 127.0.0.1
       port: 6379
+      password: 123456
 
 rocketmq:
   name-server: 127.0.0.1:9876
@@ -109,13 +110,13 @@ ai:
         embedding: /v1/embeddings
     bailian:
       url: https://dashscope.aliyuncs.com
-      api-key: sk-9d1d777fa53a4832889c8b88eba2752e
+      api-key: sk-3d0237713ac14d0382e3bc086145d2ab
       endpoints:
         chat: /compatible-mode/v1/chat/completions
         rerank: /api/v1/services/rerank/text-rerank/text-rerank
     aihubmix:
       url: https://aihubmix.com
-      api-key: ${AIHUBMIX_API_KEY:}
+      api-key: sk-tCr8yUI3RPw7kkIIBa0b4690F1724d9dAdD937C88c
       endpoints:
         chat: /v1/chat/completions
         embedding: /v1/embeddings
@@ -192,7 +193,7 @@ ai:
         priority: 100
 
 rustfs:
-  url: http://192.168.70.108:9000
+  url: http://127.0.0.1:9001
   access-key-id: rustfsadmin
   secret-access-key: rustfsadmin
 
