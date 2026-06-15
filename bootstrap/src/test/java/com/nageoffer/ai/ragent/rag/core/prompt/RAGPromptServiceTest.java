@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 class RAGPromptServiceTest {
 
     @Test
-    void shouldInjectConversationSummaryAsFinalUserEvidenceOnly() {
+    void shouldEmitConversationSummaryAsSemiStableContextBeforeHistory() {
         PromptTemplateLoader templateLoader = mock(PromptTemplateLoader.class);
         when(templateLoader.load(RAG_ENTERPRISE_PROMPT_PATH)).thenReturn("system base prompt");
         when(templateLoader.renderSection(eq(CONTEXT_FORMAT_PATH), anyString(), anyMap()))
@@ -61,25 +61,61 @@ class RAGPromptServiceTest {
                 List.of()
         );
 
-        Assertions.assertEquals(4, messages.size());
+        Assertions.assertEquals(5, messages.size());
         Assertions.assertEquals(ChatMessage.Role.SYSTEM, messages.get(0).getRole());
         Assertions.assertEquals("system base prompt", messages.get(0).getContent());
         Assertions.assertEquals(ChatMessage.Role.USER, messages.get(1).getRole());
-        Assertions.assertEquals(ChatMessage.Role.ASSISTANT, messages.get(2).getRole());
-        Assertions.assertEquals(ChatMessage.Role.USER, messages.get(3).getRole());
+        Assertions.assertTrue(messages.get(1).getContent().contains("<conversation-summary>"));
+        Assertions.assertTrue(messages.get(1).getContent().contains("用户偏好 Java，之前问过 OA 权限。"));
+        Assertions.assertEquals(ChatMessage.Role.USER, messages.get(2).getRole());
+        Assertions.assertEquals("上一轮问题", messages.get(2).getContent());
+        Assertions.assertEquals(ChatMessage.Role.ASSISTANT, messages.get(3).getRole());
+        Assertions.assertEquals("上一轮回答", messages.get(3).getContent());
+        Assertions.assertEquals(ChatMessage.Role.USER, messages.get(4).getRole());
         Assertions.assertFalse(messages.get(0).getContent().contains("用户偏好 Java"));
-        Assertions.assertFalse(messages.get(1).getContent().contains("用户偏好 Java"));
         Assertions.assertFalse(messages.get(2).getContent().contains("用户偏好 Java"));
+        Assertions.assertFalse(messages.get(3).getContent().contains("用户偏好 Java"));
 
-        String finalUserContent = messages.get(3).getContent();
-        Assertions.assertTrue(finalUserContent.contains("<conversation-summary>"));
-        Assertions.assertTrue(finalUserContent.contains("用户偏好 Java，之前问过 OA 权限。"));
+        String finalUserContent = messages.get(4).getContent();
+        Assertions.assertFalse(finalUserContent.contains("<conversation-summary>"));
         Assertions.assertTrue(finalUserContent.contains("<kb-evidence>"));
         Assertions.assertTrue(finalUserContent.contains("知识库片段"));
         Assertions.assertTrue(finalUserContent.contains("<single-question>"));
         Assertions.assertTrue(finalUserContent.contains("本轮问题是什么？"));
-        Assertions.assertTrue(finalUserContent.indexOf("<conversation-summary>")
-                < finalUserContent.indexOf("<kb-evidence>"));
+    }
+
+    @Test
+    void shouldSkipSemiStableContextWhenSummaryIsBlank() {
+        PromptTemplateLoader templateLoader = mock(PromptTemplateLoader.class);
+        when(templateLoader.load(RAG_ENTERPRISE_PROMPT_PATH)).thenReturn("system base prompt");
+        when(templateLoader.renderSection(eq(CONTEXT_FORMAT_PATH), anyString(), anyMap()))
+                .thenAnswer(invocation -> renderSection(
+                        invocation.getArgument(1),
+                        invocation.getArgument(2)
+                ));
+
+        RAGPromptService promptService = new RAGPromptService(templateLoader);
+        PromptContext context = PromptContext.builder()
+                .conversationSummary("   ")
+                .kbContext("知识库片段")
+                .build();
+
+        List<ChatMessage> messages = promptService.buildStructuredMessages(
+                context,
+                List.of(),
+                "本轮问题是什么？",
+                List.of()
+        );
+
+        Assertions.assertEquals(2, messages.size());
+        Assertions.assertEquals(ChatMessage.Role.SYSTEM, messages.get(0).getRole());
+        Assertions.assertEquals("system base prompt", messages.get(0).getContent());
+        Assertions.assertEquals(ChatMessage.Role.USER, messages.get(1).getRole());
+        Assertions.assertFalse(messages.get(1).getContent().contains("<conversation-summary>"));
+        Assertions.assertTrue(messages.get(1).getContent().contains("<kb-evidence>"));
+        Assertions.assertTrue(messages.get(1).getContent().contains("知识库片段"));
+        Assertions.assertTrue(messages.get(1).getContent().contains("<single-question>"));
+        Assertions.assertTrue(messages.get(1).getContent().contains("本轮问题是什么？"));
     }
 
     private String renderSection(String section, Map<String, String> slots) {

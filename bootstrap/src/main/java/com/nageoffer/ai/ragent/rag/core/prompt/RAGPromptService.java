@@ -49,6 +49,7 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.RAG_ENTERPRISE_PR
 public class RAGPromptService {
 
     private final PromptTemplateLoader templateLoader;
+    private final PromptContextAssembler contextAssembler = new PromptContextAssembler();
 
     /**
      * 生成系统提示词，并对模板格式做清理
@@ -62,34 +63,33 @@ public class RAGPromptService {
     }
 
     /**
-     * 构造发送给 LLM 的完整消息列表（system + evidence + history + user）
+     * 构造发送给 LLM 的完整消息列表（stable + semi-stable + history + ephemeral）
      */
     public List<ChatMessage> buildStructuredMessages(PromptContext context,
                                                      List<ChatMessage> history,
                                                      String question,
                                                      List<String> subQuestions) {
-        List<ChatMessage> messages = new ArrayList<>();
-
-        // 1. 系统提示词
         String systemPrompt = buildSystemPrompt(context);
-        if (StrUtil.isNotBlank(systemPrompt)) {
-            messages.add(ChatMessage.system(systemPrompt));
-        }
+        List<PromptContextLayer> leadingLayers = new ArrayList<>();
+        leadingLayers.add(new PromptContextLayer(
+                "system",
+                PromptContextLayer.Stability.STABLE,
+                ChatMessage.Role.SYSTEM,
+                systemPrompt
+        ));
+        leadingLayers.add(buildConversationSummaryLayer(context));
 
-        // 2. 最近原文历史。压缩摘要作为证据数据块放入最终 user message，避免污染 system 前缀。
-        if (CollUtil.isNotEmpty(history)) {
-            messages.addAll(history);
-        }
-
-        // 3. 证据 + 问题（合并为一条 user message）
         String evidenceBody = buildEvidenceBody(context);
         String userQuestion = buildUserQuestion(question, subQuestions);
         String userContent = mergeEvidenceAndQuestion(evidenceBody, userQuestion);
-        if (StrUtil.isNotBlank(userContent)) {
-            messages.add(ChatMessage.user(userContent));
-        }
+        PromptContextLayer finalLayer = new PromptContextLayer(
+                "dynamic-request",
+                PromptContextLayer.Stability.EPHEMERAL,
+                ChatMessage.Role.USER,
+                userContent
+        );
 
-        return messages;
+        return contextAssembler.assemble(leadingLayers, history, finalLayer);
     }
 
     private PromptPlan planPrompt(List<NodeScore> intents, Map<String, List<RetrievedChunk>> intentChunks) {
@@ -213,16 +213,26 @@ public class RAGPromptService {
         return evidenceBody + "\n\n" + question;
     }
 
+    private PromptContextLayer buildConversationSummaryLayer(PromptContext context) {
+        if (StrUtil.isBlank(context.getConversationSummary())) {
+            return null;
+        }
+        String content = renderSection("summary-wrapper", Map.of(
+                "content", context.getConversationSummary().trim()
+        ));
+        return new PromptContextLayer(
+                "conversation-summary",
+                PromptContextLayer.Stability.SEMI_STABLE,
+                ChatMessage.Role.USER,
+                content
+        );
+    }
+
     /**
      * 将 MCP 和 KB 证据合并为一个文本块，各自有值时用对应 section 渲染
      */
     private String buildEvidenceBody(PromptContext context) {
         StringBuilder sb = new StringBuilder();
-        if (StrUtil.isNotBlank(context.getConversationSummary())) {
-            appendEvidenceSection(sb, renderSection("summary-wrapper", Map.of(
-                    "content", context.getConversationSummary().trim()
-            )));
-        }
         if (StrUtil.isNotBlank(context.getMcpContext())) {
             appendEvidenceSection(sb, renderSection("mcp-evidence", Map.of("body", context.getMcpContext().trim())));
         }
