@@ -77,6 +77,7 @@ public class RAGPromptService {
                 ChatMessage.Role.SYSTEM,
                 systemPrompt
         ));
+        leadingLayers.add(buildLongTermMemoryLayer(context));
         leadingLayers.add(buildConversationSummaryLayer(context));
 
         String evidenceBody = buildEvidenceBody(context);
@@ -225,6 +226,18 @@ public class RAGPromptService {
                 PromptContextLayer.Stability.SEMI_STABLE,
                 ChatMessage.Role.USER,
                 content
+        );
+    }
+
+    private PromptContextLayer buildLongTermMemoryLayer(PromptContext context) {
+        if (StrUtil.isBlank(context.getLongTermMemory())) {
+            return null;
+        }
+        return new PromptContextLayer(
+                "long-term-memory",
+                PromptContextLayer.Stability.SEMI_STABLE,
+                ChatMessage.Role.USER,
+                context.getLongTermMemory().trim()
         );
     }
 

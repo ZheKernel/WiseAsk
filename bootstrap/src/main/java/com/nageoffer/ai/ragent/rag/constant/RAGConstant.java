@@ -98,6 +98,11 @@ public class RAGConstant {
     public static final String CONVERSATION_SUMMARY_PROMPT_PATH = "prompt/conversation-summary.st";
 
     /**
+     * 用户长期记忆抽取提示词模板路径
+     */
+    public static final String LONG_TERM_MEMORY_EXTRACT_PROMPT_PATH = "prompt/long-term-memory-extract.st";
+
+    /**
      * 会话标题生成提示词模板路径
      * 通过 {@code {title_max_chars}} 与 {@code {question}} 控制标题长度与输入问题
      */

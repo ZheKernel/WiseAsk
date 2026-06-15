@@ -105,6 +105,11 @@ public class RAGSettingsController {
                 .summaryMaxChars(props.getSummaryMaxChars())
                 .summaryUpdateMinTurns(props.getSummaryUpdateMinTurns())
                 .summaryTriggerInputTokens(props.getSummaryTriggerInputTokens())
+                .longTermEnabled(props.getLongTermEnabled())
+                .longTermExtractionEnabled(props.getLongTermExtractionEnabled())
+                .longTermRecallLimit(props.getLongTermRecallLimit())
+                .longTermExtractionRecentMessages(props.getLongTermExtractionRecentMessages())
+                .longTermMaxContentLength(props.getLongTermMaxContentLength())
                 .titleMaxLength(props.getTitleMaxLength())
                 .build();
     }

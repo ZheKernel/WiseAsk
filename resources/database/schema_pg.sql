@@ -97,6 +97,38 @@ CREATE INDEX idx_conversation_id ON t_message_feedback (conversation_id);
 CREATE INDEX idx_user_id ON t_message_feedback (user_id);
 COMMENT ON TABLE t_message_feedback IS '会话消息反馈表';
 
+CREATE TABLE t_user_long_term_memory (
+    id                     VARCHAR(20)  NOT NULL PRIMARY KEY,
+    user_id                VARCHAR(20)  NOT NULL,
+    memory_type            VARCHAR(32)  NOT NULL,
+    memory_key             VARCHAR(128) NOT NULL,
+    content                TEXT         NOT NULL,
+    confidence             INTEGER      DEFAULT 3,
+    importance             INTEGER      DEFAULT 3,
+    source_conversation_id VARCHAR(20),
+    source_message_id      VARCHAR(20),
+    access_count           INTEGER      DEFAULT 0,
+    last_access_time       TIMESTAMP,
+    status                 VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
+    create_time            TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    update_time            TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    deleted                SMALLINT     DEFAULT 0,
+    CONSTRAINT uk_user_memory_key UNIQUE (user_id, memory_type, memory_key, deleted)
+);
+CREATE INDEX idx_user_memory_active ON t_user_long_term_memory (user_id, status, deleted, update_time);
+COMMENT ON TABLE t_user_long_term_memory IS '用户长期记忆表';
+COMMENT ON COLUMN t_user_long_term_memory.user_id IS '用户ID';
+COMMENT ON COLUMN t_user_long_term_memory.memory_type IS '记忆类型：PREFERENCE/PROJECT/CONSTRAINT/FACT';
+COMMENT ON COLUMN t_user_long_term_memory.memory_key IS '记忆合并键';
+COMMENT ON COLUMN t_user_long_term_memory.content IS '长期记忆内容';
+COMMENT ON COLUMN t_user_long_term_memory.confidence IS '置信度 1-5';
+COMMENT ON COLUMN t_user_long_term_memory.importance IS '重要性 1-5';
+COMMENT ON COLUMN t_user_long_term_memory.source_conversation_id IS '来源会话ID';
+COMMENT ON COLUMN t_user_long_term_memory.source_message_id IS '来源消息ID';
+COMMENT ON COLUMN t_user_long_term_memory.access_count IS '召回次数';
+COMMENT ON COLUMN t_user_long_term_memory.last_access_time IS '最近召回时间';
+COMMENT ON COLUMN t_user_long_term_memory.status IS '状态：ACTIVE/ARCHIVED';
+
 CREATE TABLE t_sample_question (
     id          VARCHAR(20)        NOT NULL PRIMARY KEY,
     title       VARCHAR(64),

@@ -52,6 +52,9 @@ public class StreamChatContext {
     private String conversationSummary;
 
     @Setter
+    private String longTermMemory;
+
+    @Setter
     private RewriteResult rewriteResult;
 
     @Setter

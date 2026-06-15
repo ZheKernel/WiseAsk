@@ -76,6 +76,37 @@ public class MemoryProperties {
     private Integer summaryTriggerInputTokens = 12000;
 
     /**
+     * 是否启用长期记忆召回
+     */
+    private Boolean longTermEnabled = true;
+
+    /**
+     * 是否启用长期记忆异步抽取
+     */
+    private Boolean longTermExtractionEnabled = true;
+
+    /**
+     * 每次召回的长期记忆条数上限
+     */
+    @Min(1)
+    @Max(20)
+    private Integer longTermRecallLimit = 5;
+
+    /**
+     * 抽取长期记忆时回看最近消息条数
+     */
+    @Min(2)
+    @Max(20)
+    private Integer longTermExtractionRecentMessages = 6;
+
+    /**
+     * 单条长期记忆最大长度
+     */
+    @Min(50)
+    @Max(1000)
+    private Integer longTermMaxContentLength = 300;
+
+    /**
      * 会话标题最大长度（用于提示词约束）
      */
     @Min(10)

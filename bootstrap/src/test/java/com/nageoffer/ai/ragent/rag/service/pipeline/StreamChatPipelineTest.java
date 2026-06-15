@@ -26,6 +26,7 @@ import com.nageoffer.ai.ragent.rag.core.guidance.IntentGuidanceService;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentResolver;
 import com.nageoffer.ai.ragent.rag.core.memory.ConversationMemoryContext;
 import com.nageoffer.ai.ragent.rag.core.memory.ConversationMemoryService;
+import com.nageoffer.ai.ragent.rag.core.memory.LongTermMemoryService;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptTemplateLoader;
 import com.nageoffer.ai.ragent.rag.core.prompt.RAGPromptService;
 import com.nageoffer.ai.ragent.rag.core.retrieve.RetrievalEngine;
@@ -54,6 +55,7 @@ class StreamChatPipelineTest {
     void shouldLoadSeparatedMemoryContextAndAppendCurrentUserQuestionBeforeRewrite() {
         SearchChannelProperties searchProperties = new SearchChannelProperties();
         ConversationMemoryService memoryService = mock(ConversationMemoryService.class);
+        LongTermMemoryService longTermMemoryService = mock(LongTermMemoryService.class);
         QueryRewriteService queryRewriteService = mock(QueryRewriteService.class);
         IntentResolver intentResolver = mock(IntentResolver.class);
         IntentGuidanceService guidanceService = mock(IntentGuidanceService.class);
@@ -72,6 +74,8 @@ class StreamChatPipelineTest {
                 .thenReturn(new ConversationMemoryContext("压缩摘要", recentHistory));
         when(queryRewriteService.rewriteWithSplit(eq("当前问题"), eq(recentHistory)))
                 .thenReturn(new RewriteResult("当前问题", List.of("当前问题")));
+        when(longTermMemoryService.recall("user-1", "当前问题"))
+                .thenReturn("<long-term-memory>\n- [PREFERENCE] prefers Java\n</long-term-memory>");
         List<SubQuestionIntent> subIntents = List.of(new SubQuestionIntent("当前问题", List.of()));
         when(intentResolver.resolve(new RewriteResult("当前问题", List.of("当前问题")))).thenReturn(subIntents);
         when(guidanceService.detectAmbiguity("当前问题", subIntents)).thenReturn(GuidanceDecision.none());
@@ -82,6 +86,7 @@ class StreamChatPipelineTest {
         StreamChatPipeline pipeline = new StreamChatPipeline(
                 searchProperties,
                 memoryService,
+                longTermMemoryService,
                 queryRewriteService,
                 intentResolver,
                 guidanceService,
@@ -106,8 +111,11 @@ class StreamChatPipelineTest {
         Assertions.assertEquals(ChatMessage.Role.USER, appendedMessage.getValue().getRole());
         Assertions.assertEquals("当前问题", appendedMessage.getValue().getContent());
         Assertions.assertEquals("压缩摘要", ctx.getConversationSummary());
+        Assertions.assertEquals("<long-term-memory>\n- [PREFERENCE] prefers Java\n</long-term-memory>",
+                ctx.getLongTermMemory());
         Assertions.assertEquals(recentHistory, ctx.getHistory());
         verify(queryRewriteService).rewriteWithSplit("当前问题", recentHistory);
+        verify(longTermMemoryService).recall("user-1", "当前问题");
         verify(callback).onContent("未检索到与问题相关的文档内容。");
         verify(callback).onComplete();
         verifyNoInteractions(llmService, promptBuilder, promptTemplateLoader, taskManager);

@@ -69,6 +69,11 @@ rag:
     summary-max-chars: 200
     summary-update-min-turns: 6
     summary-trigger-input-tokens: 12000
+    long-term-enabled: true
+    long-term-extraction-enabled: true
+    long-term-recall-limit: 5
+    long-term-extraction-recent-messages: 6
+    long-term-max-content-length: 300
     title-max-length: 30
 
   semaphore:

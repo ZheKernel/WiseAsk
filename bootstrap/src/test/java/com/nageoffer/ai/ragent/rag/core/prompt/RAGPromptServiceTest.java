@@ -118,6 +118,53 @@ class RAGPromptServiceTest {
         Assertions.assertTrue(messages.get(1).getContent().contains("本轮问题是什么？"));
     }
 
+    @Test
+    void shouldPlaceLongTermMemoryBeforeConversationSummary() {
+        PromptTemplateLoader templateLoader = mock(PromptTemplateLoader.class);
+        when(templateLoader.load(RAG_ENTERPRISE_PROMPT_PATH)).thenReturn("system base prompt");
+        when(templateLoader.renderSection(eq(CONTEXT_FORMAT_PATH), anyString(), anyMap()))
+                .thenAnswer(invocation -> renderSection(
+                        invocation.getArgument(1),
+                        invocation.getArgument(2)
+                ));
+
+        RAGPromptService promptService = new RAGPromptService(templateLoader);
+        PromptContext context = PromptContext.builder()
+                .longTermMemory("""
+                        <long-term-memory>
+                        - [PREFERENCE] User prefers Java/Spring style implementations.
+                        </long-term-memory>
+                        """.trim())
+                .conversationSummary("用户之前讨论了 RAG 架构优化。")
+                .kbContext("知识库片段")
+                .build();
+        List<ChatMessage> history = List.of(
+                ChatMessage.user("上一轮问题"),
+                ChatMessage.assistant("上一轮回答")
+        );
+
+        List<ChatMessage> messages = promptService.buildStructuredMessages(
+                context,
+                history,
+                "本轮问题是什么？",
+                List.of()
+        );
+
+        Assertions.assertEquals(6, messages.size());
+        Assertions.assertEquals(ChatMessage.Role.SYSTEM, messages.get(0).getRole());
+        Assertions.assertEquals(ChatMessage.Role.USER, messages.get(1).getRole());
+        Assertions.assertTrue(messages.get(1).getContent().contains("<long-term-memory>"));
+        Assertions.assertTrue(messages.get(1).getContent().contains("User prefers Java/Spring style implementations."));
+        Assertions.assertEquals(ChatMessage.Role.USER, messages.get(2).getRole());
+        Assertions.assertTrue(messages.get(2).getContent().contains("<conversation-summary>"));
+        Assertions.assertEquals("上一轮问题", messages.get(3).getContent());
+        Assertions.assertEquals("上一轮回答", messages.get(4).getContent());
+        Assertions.assertFalse(messages.get(5).getContent().contains("<long-term-memory>"));
+        Assertions.assertFalse(messages.get(5).getContent().contains("<conversation-summary>"));
+        Assertions.assertTrue(messages.get(5).getContent().contains("<kb-evidence>"));
+        Assertions.assertTrue(messages.get(5).getContent().contains("<single-question>"));
+    }
+
     private String renderSection(String section, Map<String, String> slots) {
         return switch (section) {
             case "summary-wrapper" -> "<conversation-summary>\n" + slots.get("content")
