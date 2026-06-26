@@ -19,6 +19,8 @@ package com.nageoffer.ai.ragent.rag.core.retrieve;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.nageoffer.ai.ragent.framework.context.LoginUser;
+import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
 import com.nageoffer.ai.ragent.framework.trace.RagTraceNode;
 import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
@@ -28,6 +30,7 @@ import com.nageoffer.ai.ragent.rag.core.intent.NodeScoreFilters;
 import com.nageoffer.ai.ragent.rag.core.mcp.McpParameterExtractor;
 import com.nageoffer.ai.ragent.rag.core.mcp.McpToolExecutor;
 import com.nageoffer.ai.ragent.rag.core.mcp.McpToolRegistry;
+import com.nageoffer.ai.ragent.rag.core.permission.RagResourcePermissionService;
 import com.nageoffer.ai.ragent.rag.core.prompt.ContextFormatter;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptTemplateLoader;
 import com.nageoffer.ai.ragent.rag.dto.KbResult;
@@ -67,6 +70,7 @@ public class RetrievalEngine {
     private final McpParameterExtractor mcpParameterExtractor;
     private final McpToolRegistry mcpToolRegistry;
     private final MultiChannelRetrievalEngine multiChannelRetrievalEngine;
+    private final RagResourcePermissionService permissionService;
     private final Executor ragContextExecutor;
     private final Executor mcpBatchExecutor;
 
@@ -234,12 +238,13 @@ public class RetrievalEngine {
             return Map.of();
         }
 
+        LoginUser currentUser = UserContext.requireUser();
         List<CompletableFuture<ToolOutput>> futures = mcpIntentScores.stream()
                 .map(ns -> CompletableFuture.supplyAsync(
                         () -> {
                             String toolId = ns.getNode().getMcpToolId();
                             try {
-                                CallToolResult result = executeSingleMcpTool(question, ns.getNode());
+                                CallToolResult result = executeSingleMcpTool(question, ns.getNode(), currentUser);
                                 return result == null ? null : new ToolOutput(toolId, result);
                             } catch (Exception e) {
                                 log.error("MCP 工具调用异常, toolId: {}", toolId, e);
@@ -262,8 +267,13 @@ public class RetrievalEngine {
                 ));
     }
 
-    private CallToolResult executeSingleMcpTool(String question, IntentNode intentNode) {
+    private CallToolResult executeSingleMcpTool(String question, IntentNode intentNode, LoginUser currentUser) {
         String toolId = intentNode.getMcpToolId();
+        if (!permissionService.canCallMcpTool(currentUser, toolId)) {
+            log.warn("当前用户无权调用 MCP 工具: {}", toolId);
+            return null;
+        }
+
         Optional<McpToolExecutor> executorOpt = mcpToolRegistry.getExecutor(toolId);
         if (executorOpt.isEmpty()) {
             log.warn("MCP 工具不存在: {}", toolId);

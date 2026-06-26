@@ -59,6 +59,16 @@ public class KnowledgeBaseDO {
     private String collectionName;
 
     /**
+     * 知识库所有者用户 ID
+     */
+    private String ownerUserId;
+
+    /**
+     * 知识库作用域：GLOBAL/PERSONAL
+     */
+    private String scope;
+
+    /**
      * 创建人
      */
     private String createdBy;

@@ -22,8 +22,10 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 检索上下文
@@ -60,6 +62,12 @@ public class SearchContext {
     private int topK;
 
     /**
+     * 当前用户可检索的 Collection 集合
+     */
+    @Builder.Default
+    private Set<String> authorizedCollections = new HashSet<>();
+
+    /**
      * 扩展元数据
      */
     @Builder.Default
@@ -70,5 +78,9 @@ public class SearchContext {
      */
     public String getMainQuestion() {
         return rewrittenQuestion != null ? rewrittenQuestion : originalQuestion;
+    }
+
+    public boolean isCollectionAuthorized(String collectionName) {
+        return collectionName != null && authorizedCollections != null && authorizedCollections.contains(collectionName);
     }
 }

@@ -31,13 +31,17 @@ import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeDocumentDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentMapper;
+import com.nageoffer.ai.ragent.knowledge.enums.KnowledgeBaseScope;
+import com.nageoffer.ai.ragent.framework.context.LoginUser;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.framework.exception.ServiceException;
+import com.nageoffer.ai.ragent.rag.core.permission.RagResourcePermissionService;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceSpec;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeBaseService;
+import com.nageoffer.ai.ragent.user.enums.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -62,10 +66,12 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     private final KnowledgeDocumentMapper knowledgeDocumentMapper;
     private final VectorStoreAdmin vectorStoreAdmin;
     private final S3Client s3Client;
+    private final RagResourcePermissionService permissionService;
 
     @Transactional
     @Override
     public String create(KnowledgeBaseCreateRequest requestParam) {
+        LoginUser user = UserContext.requireUser();
         // 名称重复校验
         String name = requestParam.getName().replaceAll("\\s+", "");
         Long count = knowledgeBaseMapper.selectCount(
@@ -81,8 +87,10 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                 .name(requestParam.getName())
                 .embeddingModel(requestParam.getEmbeddingModel())
                 .collectionName(requestParam.getCollectionName())
-                .createdBy(UserContext.getUsername())
-                .updatedBy(UserContext.getUsername())
+                .ownerUserId(user.getUserId())
+                .scope(resolveCreateScope(user, requestParam))
+                .createdBy(user.getUsername())
+                .updatedBy(user.getUsername())
                 .deleted(0)
                 .build();
 
@@ -115,9 +123,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     public void update(KnowledgeBaseUpdateRequest requestParam) {
         KnowledgeBaseDO kb = knowledgeBaseMapper.selectById(requestParam.getId());
-        if (kb == null || kb.getDeleted() != null && kb.getDeleted() == 1) {
-            throw new ClientException("知识库不存在：" + requestParam.getId());
-        }
+        requireManageable(kb, "知识库不存在：" + requestParam.getId());
 
         if (StringUtils.hasText(requestParam.getEmbeddingModel())
                 && !requestParam.getEmbeddingModel().equals(kb.getEmbeddingModel())) {
@@ -146,9 +152,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     public void rename(String kbId, KnowledgeBaseUpdateRequest requestParam) {
         KnowledgeBaseDO kb = knowledgeBaseMapper.selectById(kbId);
-        if (kb == null || kb.getDeleted() != null && kb.getDeleted() == 1) {
-            throw new ClientException("知识库不存在");
-        }
+        requireManageable(kb, "知识库不存在");
 
         if (!StringUtils.hasText(requestParam.getName())) {
             throw new ClientException("知识库名称不能为空");
@@ -177,9 +181,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(String kbId) {
         KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(kbId);
-        if (kbDO == null || kbDO.getDeleted() != null && kbDO.getDeleted() == 1) {
-            throw new ClientException("知识库不存在");
-        }
+        requireManageable(kbDO, "知识库不存在");
 
         Long docCount = knowledgeDocumentMapper.selectCount(
                 Wrappers.lambdaQuery(KnowledgeDocumentDO.class)
@@ -201,15 +203,29 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         if (kbDO == null || kbDO.getDeleted() != null && kbDO.getDeleted() == 1) {
             throw new ClientException("知识库不存在");
         }
+        if (!permissionService.canViewKnowledgeBase(UserContext.requireUser(), kbDO)) {
+            throw new ClientException("无权限访问知识库");
+        }
         return BeanUtil.toBean(kbDO, KnowledgeBaseVO.class);
     }
 
     @Override
     public IPage<KnowledgeBaseVO> pageQuery(KnowledgeBasePageRequest requestParam) {
+        LoginUser user = UserContext.requireUser();
         LambdaQueryWrapper<KnowledgeBaseDO> queryWrapper = Wrappers.lambdaQuery(KnowledgeBaseDO.class)
                 .like(StringUtils.hasText(requestParam.getName()), KnowledgeBaseDO::getName, requestParam.getName())
                 .eq(KnowledgeBaseDO::getDeleted, 0)
                 .orderByDesc(KnowledgeBaseDO::getUpdateTime);
+        if (!isAdmin(user)) {
+            queryWrapper.and(wrapper -> wrapper
+                    .eq(KnowledgeBaseDO::getScope, KnowledgeBaseScope.GLOBAL.name())
+                    .or()
+                    .isNull(KnowledgeBaseDO::getScope)
+                    .or(nested -> nested
+                            .eq(KnowledgeBaseDO::getScope, KnowledgeBaseScope.PERSONAL.name())
+                            .eq(KnowledgeBaseDO::getOwnerUserId, user.getUserId()))
+            );
+        }
 
         Page<KnowledgeBaseDO> page = new Page<>(requestParam.getCurrent(), requestParam.getSize());
         IPage<KnowledgeBaseDO> result = knowledgeBaseMapper.selectPage(page, queryWrapper);
@@ -243,5 +259,24 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             vo.setDocumentCount(docCount != null ? docCount : 0L);
             return vo;
         });
+    }
+
+    private String resolveCreateScope(LoginUser user, KnowledgeBaseCreateRequest requestParam) {
+        String defaultScope = isAdmin(user) ? KnowledgeBaseScope.GLOBAL.name() : KnowledgeBaseScope.PERSONAL.name();
+        String scope = KnowledgeBaseScope.normalize(requestParam.getScope(), defaultScope);
+        return isAdmin(user) ? scope : KnowledgeBaseScope.PERSONAL.name();
+    }
+
+    private void requireManageable(KnowledgeBaseDO kb, String notFoundMessage) {
+        if (kb == null || kb.getDeleted() != null && kb.getDeleted() == 1) {
+            throw new ClientException(notFoundMessage);
+        }
+        if (!permissionService.canManageKnowledgeBase(UserContext.requireUser(), kb)) {
+            throw new ClientException("无权限管理知识库");
+        }
+    }
+
+    private boolean isAdmin(LoginUser user) {
+        return user != null && UserRole.ADMIN.getCode().equalsIgnoreCase(user.getRole());
     }
 }

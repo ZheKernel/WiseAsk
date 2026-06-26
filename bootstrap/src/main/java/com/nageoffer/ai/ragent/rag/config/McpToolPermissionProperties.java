@@ -15,65 +15,29 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.knowledge.controller.vo;
+package com.nageoffer.ai.ragent.rag.config;
 
 import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
-import java.util.Date;
+import java.util.List;
 
 /**
- * 知识库前端返回对象
+ * MCP 工具权限配置。
  */
 @Data
-public class KnowledgeBaseVO {
+@Configuration
+@ConfigurationProperties(prefix = "rag.permission.mcp")
+public class McpToolPermissionProperties {
 
     /**
-     * 知识库ID
+     * 禁用的工具 ID，所有用户都不可调用。
      */
-    private String id;
+    private List<String> disabledToolIds = List.of();
 
     /**
-     * 知识库名称
+     * 仅管理员可调用的工具 ID。
      */
-    private String name;
-
-    /**
-     * 嵌入模型标识
-     */
-    private String embeddingModel;
-
-    /**
-     * Milvus Collection 名称
-     */
-    private String collectionName;
-
-    /**
-     * 知识库所有者用户 ID
-     */
-    private String ownerUserId;
-
-    /**
-     * 知识库作用域：GLOBAL/PERSONAL
-     */
-    private String scope;
-
-    /**
-     * 文档数量
-     */
-    private Long documentCount;
-
-    /**
-     * 创建人
-     */
-    private String createdBy;
-
-    /**
-     * 创建时间
-     */
-    private Date createTime;
-
-    /**
-     * 更新时间
-     */
-    private Date updateTime;
+    private List<String> adminOnlyToolIds = List.of();
 }

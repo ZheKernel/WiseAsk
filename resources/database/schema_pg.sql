@@ -150,6 +150,8 @@ CREATE TABLE t_knowledge_base (
     name            VARCHAR(128) NOT NULL,
     embedding_model VARCHAR(64)  NOT NULL,
     collection_name VARCHAR(64) NOT NULL,
+    owner_user_id   VARCHAR(20),
+    scope           VARCHAR(32)  NOT NULL DEFAULT 'GLOBAL',
     created_by      VARCHAR(20)  NOT NULL,
     updated_by      VARCHAR(20),
     create_time     TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -518,6 +520,8 @@ COMMENT ON COLUMN t_knowledge_base.id IS '主键 ID';
 COMMENT ON COLUMN t_knowledge_base.name IS '知识库名称';
 COMMENT ON COLUMN t_knowledge_base.embedding_model IS '嵌入模型标识';
 COMMENT ON COLUMN t_knowledge_base.collection_name IS 'Collection名称';
+COMMENT ON COLUMN t_knowledge_base.owner_user_id IS '知识库所有者用户ID';
+COMMENT ON COLUMN t_knowledge_base.scope IS '知识库作用域：GLOBAL/PERSONAL';
 COMMENT ON COLUMN t_knowledge_base.created_by IS '创建人';
 COMMENT ON COLUMN t_knowledge_base.updated_by IS '修改人';
 COMMENT ON COLUMN t_knowledge_base.create_time IS '创建时间';

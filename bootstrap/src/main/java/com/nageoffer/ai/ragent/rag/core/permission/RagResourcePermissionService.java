@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.knowledge.controller.request;
+package com.nageoffer.ai.ragent.rag.core.permission;
 
-import lombok.Data;
+import com.nageoffer.ai.ragent.framework.context.LoginUser;
+import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
 
-@Data
-public class KnowledgeBaseCreateRequest {
+import java.util.List;
 
-    /**
-     * 知识库名称
-     */
-    private String name;
+/**
+ * RAG 资源权限服务。
+ */
+public interface RagResourcePermissionService {
 
-    /**
-     * 嵌入模型，如 qwen3-embedding:8b-fp16
-     */
-    private String embeddingModel;
+    List<String> listRetrievableCollections(LoginUser user);
 
-    /**
-     * Milvus Collection 名称
-     */
-    private String collectionName;
+    boolean canViewKnowledgeBase(LoginUser user, KnowledgeBaseDO knowledgeBase);
 
-    /**
-     * 知识库作用域：GLOBAL/PERSONAL，仅管理员可创建 GLOBAL
-     */
-    private String scope;
+    boolean canManageKnowledgeBase(LoginUser user, KnowledgeBaseDO knowledgeBase);
+
+    boolean canCallMcpTool(LoginUser user, String toolId);
 }
