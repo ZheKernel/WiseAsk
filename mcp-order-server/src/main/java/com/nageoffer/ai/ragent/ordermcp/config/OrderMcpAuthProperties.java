@@ -15,52 +15,20 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.rag.core.mcp;
+package com.nageoffer.ai.ragent.ordermcp.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * MCP 客户端配置属性
- */
 @Data
-@ConfigurationProperties(prefix = "rag.mcp")
-public class McpClientProperties {
+@Configuration
+@ConfigurationProperties(prefix = "order-mcp.auth")
+public class OrderMcpAuthProperties {
 
-    /**
-     * MCP Server 列表
-     */
-    private List<ServerConfig> servers = new ArrayList<>();
+    private String secret;
 
-    @Data
-    public static class ServerConfig {
+    private String issuer = "ragent";
 
-        /**
-         * Whether this MCP server should be connected.
-         */
-        private boolean enabled = true;
-
-        /**
-         * 服务名称
-         */
-        private String name;
-
-        /**
-         * 服务地址
-         */
-        private String url;
-
-        /**
-         * Whether Ragent should attach an internal caller identity token.
-         */
-        private boolean authEnabled;
-
-        /**
-         * Expected audience of identity tokens for this MCP server.
-         */
-        private String audience;
-    }
+    private String audience = "order-mcp";
 }

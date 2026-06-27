@@ -17,37 +17,33 @@
 
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
-import com.nageoffer.ai.ragent.framework.context.LoginUser;
-import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
-import io.modelcontextprotocol.spec.McpSchema.Tool;
+import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import java.util.function.Supplier;
 
 /**
- * MCP 工具执行器接口
+ * Binds one caller token to the synchronous MCP call being executed.
  */
-public interface McpToolExecutor {
+@Component
+public class McpRequestIdentityContext {
 
-    /**
-     * 获取工具定义
-     *
-     * @return 工具元信息（使用官方 SDK 的 Tool）
-     */
-    Tool getToolDefinition();
+    private final ThreadLocal<String> tokenHolder = new ThreadLocal<>();
 
-    /**
-     * 执行工具调用
-     *
-     * @param parameters 调用参数
-     * @param caller     verified Ragent caller
-     * @return 工具调用结果（使用官方 SDK 的 CallToolResult）
-     */
-    CallToolResult execute(Map<String, Object> parameters, LoginUser caller);
+    public <T> T withToken(String token, Supplier<T> action) {
+        String previous = tokenHolder.get();
+        tokenHolder.set(token);
+        try {
+            return action.get();
+        } finally {
+            if (previous == null) {
+                tokenHolder.remove();
+            } else {
+                tokenHolder.set(previous);
+            }
+        }
+    }
 
-    /**
-     * 工具 ID（快捷方法）
-     */
-    default String getToolId() {
-        return getToolDefinition().name();
+    public String currentToken() {
+        return tokenHolder.get();
     }
 }

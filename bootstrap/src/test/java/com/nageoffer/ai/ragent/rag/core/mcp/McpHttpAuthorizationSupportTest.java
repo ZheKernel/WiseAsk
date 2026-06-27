@@ -17,37 +17,30 @@
 
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
-import com.nageoffer.ai.ragent.framework.context.LoginUser;
-import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
-import io.modelcontextprotocol.spec.McpSchema.Tool;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.util.Map;
+import java.net.URI;
+import java.net.http.HttpRequest;
 
-/**
- * MCP 工具执行器接口
- */
-public interface McpToolExecutor {
+class McpHttpAuthorizationSupportTest {
 
-    /**
-     * 获取工具定义
-     *
-     * @return 工具元信息（使用官方 SDK 的 Tool）
-     */
-    Tool getToolDefinition();
+    @Test
+    void shouldWriteBearerTokenFromTransportContext() {
+        URI uri = URI.create("http://localhost:9100/mcp");
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri);
 
-    /**
-     * 执行工具调用
-     *
-     * @param parameters 调用参数
-     * @param caller     verified Ragent caller
-     * @return 工具调用结果（使用官方 SDK 的 CallToolResult）
-     */
-    CallToolResult execute(Map<String, Object> parameters, LoginUser caller);
+        McpHttpAuthorizationSupport.bearerTokenCustomizer().customize(
+                requestBuilder,
+                "POST",
+                uri,
+                "{}",
+                McpHttpAuthorizationSupport.transportContext("signed-token")
+        );
 
-    /**
-     * 工具 ID（快捷方法）
-     */
-    default String getToolId() {
-        return getToolDefinition().name();
+        Assertions.assertEquals(
+                "Bearer signed-token",
+                requestBuilder.build().headers().firstValue("Authorization").orElseThrow()
+        );
     }
 }

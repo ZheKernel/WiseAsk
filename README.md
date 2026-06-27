@@ -97,16 +97,27 @@ Ragent AI 是一个前后端分离的 Agentic RAG 平台，覆盖文档入库、
 
 相关改造包含配置项、数据库升级脚本和针对摘要、长期记忆、Prompt 组装及流式处理的回归测试。
 
+### 5. 订单 MCP 权限隔离
+
+- 新增独立的 `mcp-order-server`，通过固定参数化 SQL 查询单独的 PostgreSQL 订单库。
+- Ragent 为每次 MCP 工具调用签发短期内部身份令牌，不信任模型生成的 `userId`。
+- 普通用户只能查询与当前登录用户 ID 匹配的订单，管理员可以跨用户查询。
+- Ragent 入口和订单服务同时鉴权，避免绕过主应用直接调用 MCP 服务。
+
+详细初始化和启动步骤见 `docs/order-mcp-quick-start.md`。
+
 ## 系统架构
 
-后端按职责拆分为四个 Maven 模块：
+后端按职责拆分为六个 Maven 模块：
 
 | 模块 | 职责 |
 | --- | --- |
 | `framework` | 通用异常、响应体、幂等、分布式 ID、上下文透传和 SSE 等基础能力 |
 | `infra-ai` | 模型客户端、Embedding、Rerank、模型路由、健康状态和供应商适配 |
 | `bootstrap` | RAG 业务、知识库、意图、检索、记忆、入库 Pipeline、接口和配置 |
+| `mcp-auth` | Ragent 与受保护 MCP 服务之间的短期调用身份定义和签名校验 |
 | `mcp-server` | 独立 MCP 工具服务及协议接入 |
+| `mcp-order-server` | PostgreSQL 订单查询 MCP 服务及用户行级权限控制 |
 
 ![Ragent 模块分层](assets/ragent-module-layering-v2.png)
 
@@ -189,7 +200,9 @@ ragent
 │   └── src/test              # 后端测试
 ├── framework                 # 通用工程基础设施
 ├── infra-ai                  # 模型与 AI 基础设施适配
+├── mcp-auth                  # MCP 内部调用身份与令牌校验
 ├── mcp-server                # MCP 工具服务
+├── mcp-order-server          # 独立订单查询 MCP 服务
 ├── frontend                  # React 管理端与问答端
 ├── resources
 │   ├── database              # PostgreSQL 建表、初始化及升级脚本
@@ -294,6 +307,9 @@ Linux / macOS：
 ```
 
 后端默认地址为 `http://localhost:9090/api/ragent`。
+
+需要启用订单 MCP 时，先初始化独立订单库并启动 `mcp-order-server`，完整步骤见
+`docs/order-mcp-quick-start.md`。
 
 ### 6. 启动前端
 

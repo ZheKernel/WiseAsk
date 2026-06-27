@@ -17,6 +17,7 @@
 
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
+import com.nageoffer.ai.ragent.framework.context.LoginUser;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -38,6 +39,10 @@ public class McpClientToolExecutor implements McpToolExecutor {
 
     private final McpSyncClient mcpClient;
     private final Tool toolDefinition;
+    private final boolean authEnabled;
+    private final String audience;
+    private final McpIdentityTokenService identityTokenService;
+    private final McpRequestIdentityContext requestIdentityContext;
 
     @Override
     public Tool getToolDefinition() {
@@ -45,11 +50,18 @@ public class McpClientToolExecutor implements McpToolExecutor {
     }
 
     @Override
-    public CallToolResult execute(Map<String, Object> parameters) {
+    public CallToolResult execute(Map<String, Object> parameters, LoginUser caller) {
         long startMs = System.currentTimeMillis();
         try {
             Map<String, Object> args = parameters != null ? parameters : Map.of();
-            CallToolResult result = mcpClient.callTool(new CallToolRequest(toolDefinition.name(), args));
+            CallToolResult result;
+            if (authEnabled) {
+                String token = identityTokenService.issue(caller, audience);
+                result = requestIdentityContext.withToken(token,
+                        () -> mcpClient.callTool(new CallToolRequest(toolDefinition.name(), args)));
+            } else {
+                result = mcpClient.callTool(new CallToolRequest(toolDefinition.name(), args));
+            }
             log.info("MCP 远程工具调用完成, toolId={}, params={}, contentSize={}, elapsed={}ms",
                     toolDefinition.name(), args,
                     result.content() != null ? result.content().size() : 0,

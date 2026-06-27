@@ -286,7 +286,7 @@ public class RetrievalEngine {
         String customParamPrompt = intentNode.getParamPromptTemplate();
         Map<String, Object> params = mcpParameterExtractor.extractParameters(question, tool, customParamPrompt);
 
-        return executor.execute(params != null ? params : new HashMap<>());
+        return executor.execute(params != null ? params : new HashMap<>(), currentUser);
     }
 
     private record ToolOutput(String toolId, CallToolResult result) {
