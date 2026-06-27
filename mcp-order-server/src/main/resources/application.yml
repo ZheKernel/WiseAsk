@@ -6,9 +6,9 @@ spring:
     name: ragent-order-mcp-server
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: ${ORDER_DB_URL:jdbc:postgresql://127.0.0.1:5432/ragent_order}
+    url: ${ORDER_DB_URL:jdbc:postgresql://localhost:5432/ragent}
     username: ${ORDER_DB_USERNAME:postgres}
-    password: ${ORDER_DB_PASSWORD:}
+    password: ${ORDER_DB_PASSWORD:postgres}
     hikari:
       read-only: true
       connection-timeout: 5000
