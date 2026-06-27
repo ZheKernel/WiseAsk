@@ -1,4 +1,5 @@
 server:
+  address: localhost
   port: 9100
 
 spring:
@@ -17,6 +18,6 @@ spring:
 
 order-mcp:
   auth:
-    secret: ${RAGENT_MCP_SHARED_SECRET:}
+    secret: ${RAGENT_MCP_SHARED_SECRET:ragent-local-order-mcp-signing-key-32-bytes}
     issuer: ${RAGENT_MCP_ISSUER:ragent}
     audience: ${ORDER_MCP_AUDIENCE:order-mcp}
