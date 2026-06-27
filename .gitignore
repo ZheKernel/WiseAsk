@@ -37,8 +37,10 @@ build/
 .vscode/
 scripts/logs/
 
+
 ### Frontend ###
 node_modules/
 dist/
 .vite/
 .env.local
+.codegraph/
