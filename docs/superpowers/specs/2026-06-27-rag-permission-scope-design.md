@@ -142,6 +142,21 @@ Cover at least:
 - MCP execution does not call denied tools.
 - Prompt context never contains denied KB chunks or MCP results.
 
+## Completed Application Integration
+
+The management application uses the same backend authorization model:
+
+- All authenticated users can open the knowledge-base workspace.
+- Admin-only routes remain protected individually.
+- Normal users can manage their own `PERSONAL` knowledge bases.
+- `GLOBAL` knowledge bases are visible but read-only for normal users.
+- Document and chunk mutation controls are hidden when the current user cannot manage the KB.
+- Chunk read and mutation APIs enforce view/manage permission independently, so callers cannot bypass document checks through chunk endpoints.
+- `/rag/settings` is admin-only. Authenticated users load upload limits and enabled embedding models from `/rag/capabilities`, which does not expose provider URLs or API keys.
+- The knowledge workspace uses a mobile drawer navigation so the sidebar does not compress the main content.
+
+The database includes `idx_kb_scope_owner(scope, owner_user_id)` for permission-scoped list and retrieval queries.
+
 ## Out Of Scope
 
 - Department, team, tenant, and per-user shared ACL.

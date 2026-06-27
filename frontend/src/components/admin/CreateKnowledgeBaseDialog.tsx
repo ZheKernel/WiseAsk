@@ -32,7 +32,8 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { createKnowledgeBase } from "@/services/knowledgeService";
-import { getSystemSettings, type ModelCandidate } from "@/services/settingsService";
+import { getRagCapabilities, type RagCapabilities } from "@/services/settingsService";
+import { useAuthStore } from "@/stores/authStore";
 import { getErrorMessage } from "@/utils/error";
 
 const formSchema = z.object({
@@ -43,6 +44,7 @@ const formSchema = z.object({
     .min(1, "请输入Collection名称")
     .max(50, "名称不能超过50个字符")
     .regex(/^[a-z0-9]+$/, "只能包含小写英文字母和数字"),
+  scope: z.enum(["GLOBAL", "PERSONAL"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -60,7 +62,9 @@ export function CreateKnowledgeBaseDialog({
 }: CreateKnowledgeBaseDialogProps) {
   const [loading, setLoading] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
-  const [embeddingModels, setEmbeddingModels] = useState<ModelCandidate[]>([]);
+  const [embeddingModels, setEmbeddingModels] = useState<RagCapabilities["embeddingModels"]>([]);
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === "admin";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -68,19 +72,26 @@ export function CreateKnowledgeBaseDialog({
       name: "",
       embeddingModel: "",
       collectionName: "",
+      scope: isAdmin ? "GLOBAL" : "PERSONAL",
     },
   });
 
   useEffect(() => {
     if (!open) return;
     let active = true;
+    form.setValue("scope", isAdmin ? "GLOBAL" : "PERSONAL");
     setModelLoading(true);
-    getSystemSettings()
-      .then((settings) => {
+    getRagCapabilities()
+      .then((capabilities) => {
         if (!active) return;
-        const candidates = settings.ai?.embedding?.candidates || [];
-        const enabledModels = candidates.filter((item) => item.enabled !== false);
-        setEmbeddingModels(enabledModels);
+        const models = capabilities.embeddingModels || [];
+        setEmbeddingModels(models);
+        const defaultModel = capabilities.defaultEmbeddingModel;
+        if (!form.getValues("embeddingModel")
+          && defaultModel
+          && models.some((model) => model.id === defaultModel)) {
+          form.setValue("embeddingModel", capabilities.defaultEmbeddingModel);
+        }
       })
       .catch(() => {
         if (active) {
@@ -95,11 +106,11 @@ export function CreateKnowledgeBaseDialog({
     return () => {
       active = false;
     };
-  }, [open, form]);
+  }, [isAdmin, open, form]);
 
   const selectOptions = useMemo(() => {
     if (embeddingModels.length === 0) return [];
-    const uniqueMap = new Map<string, ModelCandidate>();
+    const uniqueMap = new Map<string, RagCapabilities["embeddingModels"][number]>();
     embeddingModels.forEach((item) => {
       if (item.id) {
         uniqueMap.set(item.id, item);
@@ -130,6 +141,7 @@ export function CreateKnowledgeBaseDialog({
         name: "",
         embeddingModel: "",
         collectionName: "",
+        scope: isAdmin ? "GLOBAL" : "PERSONAL",
       });
     }
     onOpenChange(nextOpen);
@@ -226,6 +238,33 @@ export function CreateKnowledgeBaseDialog({
                 </FormItem>
               )}
             />
+
+            {isAdmin ? (
+              <FormField
+                control={form.control}
+                name="scope"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>可见范围</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="GLOBAL">全局知识库</SelectItem>
+                        <SelectItem value="PERSONAL">个人知识库</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      全局知识库可供所有用户检索，个人知识库仅自己可管理
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : null}
 
             <DialogFooter>
               <Button

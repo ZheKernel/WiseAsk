@@ -5,6 +5,8 @@ export interface KnowledgeBase {
   name: string;
   embeddingModel: string;
   collectionName: string;
+  ownerUserId?: string | null;
+  scope?: "GLOBAL" | "PERSONAL" | string | null;
   createdBy?: string | null;
   documentCount?: number;
   createTime?: string;
@@ -91,6 +93,13 @@ export interface KnowledgeBaseUpdatePayload {
   embeddingModel?: string;
 }
 
+export interface KnowledgeBaseCreatePayload {
+  name: string;
+  embeddingModel: string;
+  collectionName: string;
+  scope?: "GLOBAL" | "PERSONAL";
+}
+
 export interface KnowledgeDocumentPageParams {
   current?: number;
   size?: number;
@@ -148,7 +157,7 @@ export const getKnowledgeBase = async (id: string): Promise<KnowledgeBase> => {
   return api.get<KnowledgeBase, KnowledgeBase>(`/knowledge-base/${id}`);
 };
 
-export const createKnowledgeBase = async (data: Partial<KnowledgeBase>): Promise<string> => {
+export const createKnowledgeBase = async (data: KnowledgeBaseCreatePayload): Promise<string> => {
   return api.post<string, string>("/knowledge-base", data);
 };
 

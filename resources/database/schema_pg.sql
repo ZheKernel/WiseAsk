@@ -160,6 +160,7 @@ CREATE TABLE t_knowledge_base (
     CONSTRAINT uk_collection_name UNIQUE (collection_name)
 );
 CREATE INDEX idx_kb_name ON t_knowledge_base (name);
+CREATE INDEX idx_kb_scope_owner ON t_knowledge_base (scope, owner_user_id);
 COMMENT ON TABLE t_knowledge_base IS '知识库表';
 
 CREATE TABLE t_knowledge_document (

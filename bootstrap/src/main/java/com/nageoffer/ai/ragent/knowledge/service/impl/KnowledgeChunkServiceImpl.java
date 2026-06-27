@@ -44,6 +44,7 @@ import com.nageoffer.ai.ragent.framework.exception.ServiceException;
 import com.nageoffer.ai.ragent.infra.embedding.EmbeddingService;
 import com.nageoffer.ai.ragent.infra.token.TokenCounterService;
 import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
+import com.nageoffer.ai.ragent.rag.core.permission.RagResourcePermissionService;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeChunkService;
 import lombok.RequiredArgsConstructor;
@@ -73,11 +74,13 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     private final TokenCounterService tokenCounterService;
     private final VectorStoreService vectorStoreService;
     private final TransactionOperations transactionOperations;
+    private final RagResourcePermissionService permissionService;
 
     @Override
     public IPage<KnowledgeChunkVO> pageQuery(String docId, KnowledgeChunkPageRequest requestParam) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireViewableKnowledgeBase(documentDO.getKbId());
 
         LambdaQueryWrapper<KnowledgeChunkDO> queryWrapper = new LambdaQueryWrapper<KnowledgeChunkDO>()
                 .eq(KnowledgeChunkDO::getDocId, docId)
@@ -94,6 +97,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public KnowledgeChunkVO create(String docId, KnowledgeChunkCreateRequest requestParam) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        KnowledgeBaseDO kbDO = requireManageableKnowledgeBase(documentDO.getKbId());
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
             throw new ClientException("文档正在分块处理中，暂不支持新增 Chunk");
         }
@@ -116,7 +120,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
 
         String contentHash = SecureUtil.sha256(content);
         int charCount = content.length();
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
         String embeddingModel = kbDO.getEmbeddingModel();
         String collectionName = kbDO.getCollectionName();
         Integer tokenCount = resolveTokenCount(content);
@@ -240,6 +243,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public void update(String docId, String chunkId, KnowledgeChunkUpdateRequest requestParam) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        KnowledgeBaseDO kbDO = requireManageableKnowledgeBase(documentDO.getKbId());
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
             throw new ClientException("文档正在分块处理中，暂不支持修改 Chunk");
         }
@@ -258,7 +262,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         chunkDO.setContent(newContent);
         chunkDO.setContentHash(SecureUtil.sha256(newContent));
         chunkDO.setCharCount(newContent.length());
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
         String embeddingModel = kbDO.getEmbeddingModel();
         String collectionName = kbDO.getCollectionName();
         chunkDO.setTokenCount(resolveTokenCount(newContent));
@@ -286,6 +289,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public void delete(String docId, String chunkId) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        KnowledgeBaseDO kbDO = requireManageableKnowledgeBase(documentDO.getKbId());
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
             throw new ClientException("文档正在分块处理中，暂不支持删除 Chunk");
         }
@@ -294,8 +298,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         Assert.notNull(chunkDO, () -> new ClientException("Chunk 不存在"));
         Assert.isTrue(chunkDO.getDocId().equals(docId), () -> new ClientException("Chunk 不属于该文档"));
 
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
-        Assert.notNull(kbDO, () -> new ServiceException("知识库不存在"));
         String collectionName = kbDO.getCollectionName();
 
         chunkMapper.deleteById(chunkId);
@@ -314,6 +316,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public void enableChunk(String docId, String chunkId, boolean enabled) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        KnowledgeBaseDO kbDO = requireManageableKnowledgeBase(documentDO.getKbId());
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
             throw new ClientException("文档正在分块处理中，暂不支持修改 Chunk 状态");
         }
@@ -333,7 +336,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         chunkDO.setUpdatedBy(UserContext.getUsername());
         chunkMapper.updateById(chunkDO);
 
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
         String collectionName = kbDO.getCollectionName();
         log.info("{}Chunk 成功, kbId={}, docId={}, chunkId={}", enabled ? "启用" : "禁用", documentDO.getKbId(), docId, chunkId);
 
@@ -357,6 +359,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
 
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        KnowledgeBaseDO kbDO = requireManageableKnowledgeBase(documentDO.getKbId());
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
             throw new ClientException("文档正在分块处理中，暂不支持批量修改 Chunk 状态");
         }
@@ -389,7 +392,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
             throw new ClientException(enabled ? "所有 Chunk 已全部启用，无需重复操作" : "所有 Chunk 已全部禁用，无需重复操作");
         }
 
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
         String collectionName = kbDO.getCollectionName();
 
         if (enabled) {
@@ -477,6 +479,24 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         if (!Integer.valueOf(1).equals(documentDO.getEnabled())) {
             throw new ClientException("文档未启用，无法启用Chunk，请先启用文档");
         }
+    }
+
+    private KnowledgeBaseDO requireViewableKnowledgeBase(String kbId) {
+        KnowledgeBaseDO knowledgeBase = knowledgeBaseMapper.selectById(kbId);
+        Assert.notNull(knowledgeBase, () -> new ClientException("知识库不存在"));
+        if (!permissionService.canViewKnowledgeBase(UserContext.requireUser(), knowledgeBase)) {
+            throw new ClientException("无权限访问知识库");
+        }
+        return knowledgeBase;
+    }
+
+    private KnowledgeBaseDO requireManageableKnowledgeBase(String kbId) {
+        KnowledgeBaseDO knowledgeBase = knowledgeBaseMapper.selectById(kbId);
+        Assert.notNull(knowledgeBase, () -> new ClientException("知识库不存在"));
+        if (!permissionService.canManageKnowledgeBase(UserContext.requireUser(), knowledgeBase)) {
+            throw new ClientException("无权限管理知识库");
+        }
+        return knowledgeBase;
     }
 
     /**

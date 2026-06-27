@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, FileUp, Image, PlayCircle, RefreshCw, Trash2, Pencil, FileBarChart, X, Eye, MoreHorizontal, FileText, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -36,9 +36,11 @@ import {
   previewDocument
 } from "@/services/knowledgeService";
 import { getIngestionPipelines, type IngestionPipeline } from "@/services/ingestionService";
-import { getSystemSettings } from "@/services/settingsService";
+import { getRagCapabilities } from "@/services/settingsService";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
+import { useAuthStore } from "@/stores/authStore";
 import { getErrorMessage } from "@/utils/error";
+import { canManageKnowledgeBase } from "@/utils/knowledgePermission";
 
 const PAGE_SIZE = 10;
 
@@ -182,6 +184,7 @@ const renderFileTypeIcon = (fileType?: string | null, sourceType?: string | null
 export function KnowledgeDocumentsPage() {
   const { kbId } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const [kb, setKb] = useState<KnowledgeBase | null>(null);
   const [pageData, setPageData] = useState<PageResult<KnowledgeDocument> | null>(null);
   const [current, setCurrent] = useState(1);
@@ -218,6 +221,7 @@ export function KnowledgeDocumentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchOperating, setBatchOperating] = useState(false);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const canManage = useMemo(() => canManageKnowledgeBase(kb, user), [kb, user]);
 
   useEffect(() => {
     getIngestionPipelines(1, 200).then(r => {
@@ -576,10 +580,12 @@ export function KnowledgeDocumentsPage() {
           <Button variant="outline" onClick={() => navigate("/admin/knowledge")}>
             返回知识库
           </Button>
-          <Button className="admin-primary-gradient" onClick={() => setUploadOpen(true)}>
-            <FileUp className="mr-2 h-4 w-4" />
-            上传文档
-          </Button>
+          {canManage ? (
+            <Button className="admin-primary-gradient" onClick={() => setUploadOpen(true)}>
+              <FileUp className="mr-2 h-4 w-4" />
+              上传文档
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -588,7 +594,9 @@ export function KnowledgeDocumentsPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle>文档列表</CardTitle>
-              <CardDescription>支持筛选与分块管理</CardDescription>
+              <CardDescription>
+                {canManage ? "支持筛选与分块管理" : "全局知识库为只读模式"}
+              </CardDescription>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
               <Input
@@ -635,12 +643,14 @@ export function KnowledgeDocumentsPage() {
             <Table className="min-w-[910px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[40px]">
-                      <Checkbox
-                        checked={documents.length > 0 && selectedIds.size === documents.length}
-                        onCheckedChange={toggleSelectAll}
-                      />
-                    </TableHead>
+                    {canManage ? (
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={documents.length > 0 && selectedIds.size === documents.length}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                    ) : null}
                     <TableHead className="w-[280px]">文档</TableHead>
                     <TableHead className="w-[110px]">状态</TableHead>
                     <TableHead className="w-[70px]">启用</TableHead>
@@ -653,12 +663,14 @@ export function KnowledgeDocumentsPage() {
               <TableBody>
                 {documents.map((doc) => (
                   <TableRow key={doc.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedIds.has(String(doc.id))}
-                        onCheckedChange={() => toggleSelect(String(doc.id))}
-                      />
-                    </TableCell>
+                    {canManage ? (
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(String(doc.id))}
+                          onCheckedChange={() => toggleSelect(String(doc.id))}
+                        />
+                      </TableCell>
+                    ) : null}
                     <TableCell>
                       <div className="flex items-center gap-2.5 min-w-0 max-w-[320px]">
                         {renderFileTypeIcon(doc.fileType, doc.sourceType)}
@@ -705,11 +717,13 @@ export function KnowledgeDocumentsPage() {
                             type="button"
                             role="switch"
                             aria-checked={enabled}
-                            aria-label={enabled ? "已启用，点击禁用" : "已禁用，点击启用"}
-                            onClick={() => handleToggleEnabled(doc)}
+                            aria-label={enabled ? "已启用" : "已禁用"}
+                            disabled={!canManage}
+                            onClick={() => canManage && handleToggleEnabled(doc)}
                             className={cn(
                               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
-                              enabled ? "bg-blue-600" : "bg-slate-200"
+                              enabled ? "bg-blue-600" : "bg-slate-200",
+                              !canManage && "cursor-default opacity-60"
                             )}
                           >
                             <span
@@ -747,49 +761,53 @@ export function KnowledgeDocumentsPage() {
                             预览
                           </Button>
                         ) : null}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            try {
-                              const detail = await getDocument(String(doc.id));
-                              setDetailTarget(detail);
-                            } catch (error) {
-                              toast.error(getErrorMessage(error, "加载文档详情失败"));
-                            }
-                          }}
-                        >
-                          <Pencil className="h-4 w-4 mr-1" />
-                          编辑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setChunkTarget(doc)}
-                        >
-                          <PlayCircle className="h-4 w-4 mr-1" />
-                          分块
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-8 w-8" title="更多">
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenChunkLogs(doc)}>
-                              <FileBarChart className="mr-2 h-4 w-4" />
-                              分块详情
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteTarget(doc)}
+                        {canManage ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  const detail = await getDocument(String(doc.id));
+                                  setDetailTarget(detail);
+                                } catch (error) {
+                                  toast.error(getErrorMessage(error, "加载文档详情失败"));
+                                }
+                              }}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <Pencil className="h-4 w-4 mr-1" />
+                              编辑
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setChunkTarget(doc)}
+                            >
+                              <PlayCircle className="h-4 w-4 mr-1" />
+                              分块
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" title="更多">
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenChunkLogs(doc)}>
+                                  <FileBarChart className="mr-2 h-4 w-4" />
+                                  分块详情
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteTarget(doc)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  删除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -823,7 +841,7 @@ export function KnowledgeDocumentsPage() {
       </Card>
 
       <UploadDialog
-        open={uploadOpen}
+        open={canManage && uploadOpen}
         onOpenChange={setUploadOpen}
         onSubmit={async (payload) => {
           if (!kbId) return;
@@ -1228,7 +1246,7 @@ export function KnowledgeDocumentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {selectedIds.size > 0 && (
+      {canManage && selectedIds.size > 0 && (
         <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center">
           <div className="animate-fade-up rounded-2xl bg-slate-900 px-5 py-3 text-sm text-white shadow-[0_10px_40px_rgba(0,0,0,0.15)]">
             <div className="flex items-center gap-3">
@@ -1435,8 +1453,8 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
       setOriginalChunkSize("512");
       loadPipelines();
       getChunkStrategies().then(setChunkStrategies).catch(() => {});
-      getSystemSettings()
-        .then((settings) => setMaxFileSize(settings.upload.maxFileSize))
+      getRagCapabilities()
+        .then((capabilities) => setMaxFileSize(capabilities.upload.maxFileSize))
         .catch(() => {});
     }
   }, [open, form]);

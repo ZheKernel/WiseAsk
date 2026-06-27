@@ -38,7 +38,13 @@ TanStack Table 和 React Hook Form。
 - `README.md`：项目概览、模块结构、启动方式和常用命令。
 - `docs/superpowers/specs/2026-06-15-prompt-context-layering-design.md`
 - `docs/superpowers/specs/2026-06-15-long-term-memory-design.md`
+- `docs/superpowers/specs/2026-06-27-rag-permission-scope-design.md`
 - `docs/superpowers/plans/2026-06-15-prompt-context-layering.md`
 - `docs/superpowers/plans/2026-06-15-long-term-memory.md`
+
+RAG 权限当前采用两级知识库作用域：`GLOBAL` 和 `PERSONAL`。普通聊天只检索
+全局库与当前用户个人库；管理员管理页可以查看全部知识库，但管理员普通聊天不会
+自动检索其他用户个人库。知识库、文档、Chunk 和 MCP 用户入口都必须经过
+`RagResourcePermissionService` 或其预计算授权集合。
 
 这些文档只能作为索引。精确行为仍然要读源码确认。

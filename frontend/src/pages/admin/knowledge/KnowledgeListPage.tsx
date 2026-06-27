@@ -31,7 +31,9 @@ import { Input } from "@/components/ui/input";
 import type { KnowledgeBase, PageResult } from "@/services/knowledgeService";
 import { deleteKnowledgeBase, getKnowledgeBasesPage, renameKnowledgeBase } from "@/services/knowledgeService";
 import { CreateKnowledgeBaseDialog } from "@/components/admin/CreateKnowledgeBaseDialog";
+import { useAuthStore } from "@/stores/authStore";
 import { getErrorMessage } from "@/utils/error";
+import { canManageKnowledgeBase, isPersonalKnowledgeBase } from "@/utils/knowledgePermission";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -39,6 +41,8 @@ const STATS_PAGE_SIZE = 200;
 
 export function KnowledgeListPage() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === "admin";
   const [searchParams] = useSearchParams();
   const nameFromQuery = searchParams.get("name") || "";
   const [pageData, setPageData] = useState<PageResult<KnowledgeBase> | null>(null);
@@ -57,7 +61,8 @@ export function KnowledgeListPage() {
     totalCount: 0,
     documentCount: 0,
     activeCount: 0,
-    creatorCount: 0
+    creatorCount: 0,
+    personalCount: 0
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const statsRequestId = useRef(0);
@@ -87,6 +92,7 @@ export function KnowledgeListPage() {
 
       let documentTotal = 0;
       let activeTotal = 0;
+      let personalTotal = 0;
       const creatorNames = new Set<string>();
       const addRecords = (records: KnowledgeBase[] = []) => {
         records.forEach((kb) => {
@@ -94,6 +100,9 @@ export function KnowledgeListPage() {
           documentTotal += docCount;
           if (docCount > 0) {
             activeTotal += 1;
+          }
+          if (isPersonalKnowledgeBase(kb)) {
+            personalTotal += 1;
           }
           if (kb.createdBy) {
             creatorNames.add(kb.createdBy);
@@ -118,7 +127,8 @@ export function KnowledgeListPage() {
         totalCount,
         documentCount: documentTotal,
         activeCount: activeTotal,
-        creatorCount: creatorNames.size
+        creatorCount: creatorNames.size,
+        personalCount: personalTotal
       });
     } catch (error) {
       if (statsRequestId.current !== requestId) return;
@@ -127,7 +137,8 @@ export function KnowledgeListPage() {
         totalCount: 0,
         documentCount: 0,
         activeCount: 0,
-        creatorCount: 0
+        creatorCount: 0,
+        personalCount: 0
       });
     } finally {
       if (statsRequestId.current === requestId) {
@@ -247,7 +258,9 @@ export function KnowledgeListPage() {
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">知识库管理</h1>
-          <p className="admin-page-subtitle">管理所有知识库及其文档</p>
+          <p className="admin-page-subtitle">
+            {isAdmin ? "管理所有知识库及其文档" : "管理个人知识库并浏览全局知识库"}
+          </p>
         </div>
         <div className="admin-page-actions">
           <Input
@@ -272,10 +285,15 @@ export function KnowledgeListPage() {
 
       <div className="admin-stat-grid">
         {[
-          { label: "知识库", value: stats.totalCount, icon: Database, scope: "全部" },
-          { label: "文档数", value: stats.documentCount, icon: FileBarChart, scope: "全部" },
-          { label: "含文档知识库", value: stats.activeCount, icon: FolderOpen, scope: "全部" },
-          { label: "创建用户数", value: stats.creatorCount, icon: Layers, scope: "全部" }
+          { label: "知识库", value: stats.totalCount, icon: Database, scope: isAdmin ? "全部" : "可访问" },
+          { label: "文档数", value: stats.documentCount, icon: FileBarChart, scope: isAdmin ? "全部" : "可访问" },
+          { label: "含文档知识库", value: stats.activeCount, icon: FolderOpen, scope: isAdmin ? "全部" : "可访问" },
+          {
+            label: isAdmin ? "创建用户数" : "个人知识库",
+            value: isAdmin ? stats.creatorCount : stats.personalCount,
+            icon: Layers,
+            scope: isAdmin ? "全部" : "我的"
+          }
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -304,12 +322,13 @@ export function KnowledgeListPage() {
               暂无知识库，点击上方按钮创建
             </div>
           ) : (
-            <Table className="min-w-[980px]">
+            <Table className="min-w-[1080px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[200px]">名称</TableHead>
                   <TableHead className="w-[180px]">Embedding模型</TableHead>
                   <TableHead className="w-[220px]">Collection</TableHead>
+                  <TableHead className="w-[90px]">范围</TableHead>
                   <TableHead className="w-[90px]">文档数</TableHead>
                   <TableHead className="w-[120px]">负责人</TableHead>
                   <TableHead className="w-[160px]">创建时间</TableHead>
@@ -318,7 +337,10 @@ export function KnowledgeListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {knowledgeBases.map((kb) => (
+                {knowledgeBases.map((kb) => {
+                  const manageable = canManageKnowledgeBase(kb, user);
+                  const personal = isPersonalKnowledgeBase(kb);
+                  return (
                   <TableRow key={kb.id}>
                     <TableCell className="font-medium">
                       <button
@@ -344,6 +366,16 @@ export function KnowledgeListPage() {
                         "-"
                       )}
                     </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={personal
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-blue-200 bg-blue-50 text-blue-700"}
+                      >
+                        {personal ? "个人" : "全局"}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{kb.documentCount ?? "-"}</TableCell>
                     <TableCell>{kb.createdBy || "-"}</TableCell>
                     <TableCell>
@@ -353,30 +385,42 @@ export function KnowledgeListPage() {
                       <RelativeTime value={kb.updateTime} />
                     </TableCell>
                     <TableCell className="text-center">
-                      <div className="flex justify-center gap-2">
+                      {manageable ? (
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setRenameDialog({ open: true, kb });
+                            }}
+                          >
+                            <Pencil className="w-4 h-4 mr-0.1" />
+                            编辑
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(kb)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-0.1" />
+                            删除
+                          </Button>
+                        </div>
+                      ) : (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setRenameDialog({ open: true, kb });
-                          }}
+                          onClick={() => navigate(`/admin/knowledge/${kb.id}`)}
                         >
-                          <Pencil className="w-4 h-4 mr-0.1" />
-                          编辑
+                          <FolderOpen className="mr-1 h-4 w-4" />
+                          查看
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget(kb)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-0.1" />
-                          删除
-                        </Button>
-                      </div>
+                      )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

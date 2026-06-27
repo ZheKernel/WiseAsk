@@ -17,6 +17,7 @@
 
 package com.nageoffer.ai.ragent.rag.controller;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.nageoffer.ai.ragent.framework.convention.Result;
 import com.nageoffer.ai.ragent.framework.web.Results;
 import com.nageoffer.ai.ragent.infra.config.AIModelProperties;
@@ -24,6 +25,7 @@ import com.nageoffer.ai.ragent.rag.config.MemoryProperties;
 import com.nageoffer.ai.ragent.rag.config.RAGConfigProperties;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.config.RAGRateLimitProperties;
+import com.nageoffer.ai.ragent.rag.controller.vo.RagCapabilitiesVO;
 import com.nageoffer.ai.ragent.rag.controller.vo.SystemSettingsVO;
 import com.nageoffer.ai.ragent.rag.controller.vo.SystemSettingsVO.AISettings;
 import com.nageoffer.ai.ragent.rag.controller.vo.SystemSettingsVO.DefaultSettings;
@@ -36,6 +38,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -63,6 +66,7 @@ public class RAGSettingsController {
      */
     @GetMapping("/rag/settings")
     public Result<SystemSettingsVO> settings() {
+        StpUtil.checkRole("admin");
         SystemSettingsVO response = SystemSettingsVO.builder()
                 .upload(SystemSettingsVO.UploadSettings.builder()
                         .maxFileSize(maxFileSize.toBytes())
@@ -87,6 +91,37 @@ public class RAGSettingsController {
                 .ai(toAISettings(aiModelProperties))
                 .build();
         return Results.success(response);
+    }
+
+    /**
+     * 获取普通登录用户可使用的 RAG 能力摘要。
+     */
+    @GetMapping("/rag/capabilities")
+    public Result<RagCapabilitiesVO> capabilities() {
+        AIModelProperties.ModelGroup embedding = aiModelProperties.getEmbedding();
+        List<RagCapabilitiesVO.EmbeddingModelOption> embeddingModels =
+                embedding == null || embedding.getCandidates() == null
+                        ? List.of()
+                        : embedding.getCandidates().stream()
+                          .filter(candidate -> candidate != null
+                                  && StringUtils.hasText(candidate.getId())
+                                  && !Boolean.FALSE.equals(candidate.getEnabled()))
+                          .map(candidate -> RagCapabilitiesVO.EmbeddingModelOption.builder()
+                                  .id(candidate.getId())
+                                  .provider(candidate.getProvider())
+                                  .model(candidate.getModel())
+                                  .dimension(candidate.getDimension())
+                                  .build())
+                          .toList();
+
+        return Results.success(RagCapabilitiesVO.builder()
+                .upload(RagCapabilitiesVO.UploadCapabilities.builder()
+                        .maxFileSize(maxFileSize.toBytes())
+                        .maxRequestSize(maxRequestSize.toBytes())
+                        .build())
+                .defaultEmbeddingModel(embedding == null ? null : embedding.getDefaultModel())
+                .embeddingModels(embeddingModels)
+                .build());
     }
 
     private DefaultSettings toDefaultSettings(RAGDefaultProperties props) {

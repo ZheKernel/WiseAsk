@@ -70,6 +70,24 @@ export interface ModelCandidate {
   supportsThinking?: boolean | null;
 }
 
+export interface RagCapabilities {
+  upload: {
+    maxFileSize: number;
+    maxRequestSize: number;
+  };
+  defaultEmbeddingModel?: string | null;
+  embeddingModels: Array<{
+    id: string;
+    provider?: string | null;
+    model?: string | null;
+    dimension?: number | null;
+  }>;
+}
+
 export async function getSystemSettings(): Promise<SystemSettings> {
   return api.get<SystemSettings, SystemSettings>("/rag/settings");
+}
+
+export async function getRagCapabilities(): Promise<RagCapabilities> {
+  return api.get<RagCapabilities, RagCapabilities>("/rag/capabilities");
 }

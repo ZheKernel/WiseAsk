@@ -1,6 +1,6 @@
 # RAG Permission Scope Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add the first permission-control layer for personal/global knowledge bases and MCP tool execution.
 
@@ -56,7 +56,7 @@
 - Create: `bootstrap/src/test/java/com/nageoffer/ai/ragent/rag/core/permission/DefaultRagResourcePermissionServiceTest.java`
 - Create: `bootstrap/src/test/java/com/nageoffer/ai/ragent/knowledge/service/impl/KnowledgeBaseServiceImplTest.java`
 
-- [ ] **Step 1: Write failing permission service tests**
+- [x] **Step 1: Write failing permission service tests**
 
 ```java
 @Test
@@ -82,7 +82,7 @@ void shouldDenyUserManagingAnotherUsersPersonalKnowledgeBase() {
 }
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -92,7 +92,7 @@ Run:
 
 Expected: FAIL because permission service and KB scope fields do not exist.
 
-- [ ] **Step 3: Write failing KB creation tests**
+- [x] **Step 3: Write failing KB creation tests**
 
 ```java
 @Test
@@ -126,7 +126,7 @@ void shouldCreateGlobalKnowledgeBaseForAdminByDefault() {
 }
 ```
 
-- [ ] **Step 4: Run tests and verify RED**
+- [x] **Step 4: Run tests and verify RED**
 
 Use the same Maven command. Expected: FAIL because creation does not set scope or owner.
 
@@ -141,7 +141,7 @@ Use the same Maven command. Expected: FAIL because creation does not set scope o
 - Create: `RagResourcePermissionService.java`
 - Create: `DefaultRagResourcePermissionService.java`
 
-- [ ] **Step 1: Add KB scope fields and enum**
+- [x] **Step 1: Add KB scope fields and enum**
 
 Add `ownerUserId` and `scope` to `KnowledgeBaseDO`, `KnowledgeBaseVO`, and optional `scope` to `KnowledgeBaseCreateRequest`. Create `KnowledgeBaseScope` with:
 
@@ -164,7 +164,7 @@ public enum KnowledgeBaseScope {
 }
 ```
 
-- [ ] **Step 2: Add MCP permission properties**
+- [x] **Step 2: Add MCP permission properties**
 
 Create config properties with defaults:
 
@@ -178,7 +178,7 @@ public class McpToolPermissionProperties {
 }
 ```
 
-- [ ] **Step 3: Implement `RagResourcePermissionService`**
+- [x] **Step 3: Implement `RagResourcePermissionService`**
 
 Expose:
 
@@ -197,7 +197,7 @@ Rules:
 - MCP admin-only list allows admins only.
 - All other tools are allowed for authenticated users.
 
-- [ ] **Step 4: Run Task 1 tests and verify GREEN for permission service**
+- [x] **Step 4: Run Task 1 tests and verify GREEN for permission service**
 
 Run the Task 1 Maven command. Expected: permission service tests pass; KB creation tests may still fail until Task 3.
 
@@ -207,7 +207,7 @@ Run the Task 1 Maven command. Expected: permission service tests pass; KB creati
 - Modify: `KnowledgeBaseServiceImpl.java`
 - Modify: `KnowledgeDocumentServiceImpl.java`
 
-- [ ] **Step 1: Implement KB create scope defaults**
+- [x] **Step 1: Implement KB create scope defaults**
 
 In `KnowledgeBaseServiceImpl.create`:
 
@@ -222,15 +222,15 @@ if (!"admin".equalsIgnoreCase(user.getRole())) {
 
 Set `.ownerUserId(user.getUserId())` and `.scope(scope)` on insert.
 
-- [ ] **Step 2: Enforce read/update/delete/list management visibility**
+- [x] **Step 2: Enforce read/update/delete/list management visibility**
 
 Before returning or mutating a KB, call `permissionService.canManageKnowledgeBase(UserContext.requireUser(), kb)`. User listing filters to `GLOBAL` plus own `PERSONAL`; admin management listing remains all.
 
-- [ ] **Step 3: Enforce document operations**
+- [x] **Step 3: Enforce document operations**
 
 For document operations that receive `kbId`, check that KB. For operations that receive `docId`, load the document, then load its KB and check it before mutating, previewing, chunking, or returning file metadata.
 
-- [ ] **Step 4: Run Task 1 tests and verify GREEN**
+- [x] **Step 4: Run Task 1 tests and verify GREEN**
 
 Run the Task 1 Maven command. Expected: all Task 1 tests pass.
 
@@ -242,7 +242,7 @@ Run the Task 1 Maven command. Expected: all Task 1 tests pass.
 - Modify/Test: `VectorGlobalSearchChannel.java`
 - Modify/Test: `IntentDirectedSearchChannel.java`
 
-- [ ] **Step 1: Write failing vector global retrieval test**
+- [x] **Step 1: Write failing vector global retrieval test**
 
 ```java
 @Test
@@ -263,7 +263,7 @@ void shouldSearchOnlyAuthorizedCollections() {
 }
 ```
 
-- [ ] **Step 2: Write failing intent-directed retrieval test**
+- [x] **Step 2: Write failing intent-directed retrieval test**
 
 ```java
 @Test
@@ -286,7 +286,7 @@ void shouldSkipUnauthorizedIntentCollections() {
 }
 ```
 
-- [ ] **Step 3: Run channel tests and verify RED**
+- [x] **Step 3: Run channel tests and verify RED**
 
 Run:
 
@@ -296,11 +296,11 @@ Run:
 
 Expected: FAIL because `authorizedCollections` does not exist and channels do not filter.
 
-- [ ] **Step 4: Implement retrieval filtering**
+- [x] **Step 4: Implement retrieval filtering**
 
 Add `Set<String> authorizedCollections` to `SearchContext`. `MultiChannelRetrievalEngine` calls `permissionService.listRetrievableCollections(UserContext.requireUser())` and sets the result on context. `VectorGlobalSearchChannel` uses only `context.getAuthorizedCollections()`. `IntentDirectedSearchChannel` filters KB intents by collection membership.
 
-- [ ] **Step 5: Run channel tests and verify GREEN**
+- [x] **Step 5: Run channel tests and verify GREEN**
 
 Run the same Maven command. Expected: PASS.
 
@@ -310,7 +310,7 @@ Run the same Maven command. Expected: PASS.
 - Modify/Test: `RetrievalEngine.java`
 - Test: `RetrievalEnginePermissionTest.java`
 
-- [ ] **Step 1: Write failing MCP denial test**
+- [x] **Step 1: Write failing MCP denial test**
 
 ```java
 @Test
@@ -328,7 +328,7 @@ void shouldNotExecuteDeniedMcpTool() {
 }
 ```
 
-- [ ] **Step 2: Run MCP test and verify RED**
+- [x] **Step 2: Run MCP test and verify RED**
 
 Run:
 
@@ -338,7 +338,7 @@ Run:
 
 Expected: FAIL because `RetrievalEngine` does not check permission service.
 
-- [ ] **Step 3: Implement MCP check**
+- [x] **Step 3: Implement MCP check**
 
 In `executeSingleMcpTool`, before registry lookup and parameter extraction:
 
@@ -349,7 +349,7 @@ if (!permissionService.canCallMcpTool(UserContext.requireUser(), toolId)) {
 }
 ```
 
-- [ ] **Step 4: Run MCP test and verify GREEN**
+- [x] **Step 4: Run MCP test and verify GREEN**
 
 Run the same Maven command. Expected: PASS.
 
@@ -359,7 +359,7 @@ Run the same Maven command. Expected: PASS.
 - Modify: `resources/database/schema_pg.sql`
 - Create: `resources/database/upgrade_v1.3_to_v1.4.sql`
 
-- [ ] **Step 1: Update schema**
+- [x] **Step 1: Update schema**
 
 Add:
 
@@ -370,7 +370,7 @@ scope         VARCHAR(32) NOT NULL DEFAULT 'GLOBAL',
 
 to `t_knowledge_base` and add comments.
 
-- [ ] **Step 2: Add idempotent upgrade script**
+- [x] **Step 2: Add idempotent upgrade script**
 
 ```sql
 ALTER TABLE t_knowledge_base
@@ -387,7 +387,7 @@ COMMENT ON COLUMN t_knowledge_base.owner_user_id IS '知识库所有者用户ID'
 COMMENT ON COLUMN t_knowledge_base.scope IS '知识库作用域：GLOBAL/PERSONAL';
 ```
 
-- [ ] **Step 3: Run focused backend tests**
+- [x] **Step 3: Run focused backend tests**
 
 Run:
 
@@ -397,7 +397,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 4: Review diff**
+- [x] **Step 4: Review diff**
 
 Run:
 
@@ -408,7 +408,7 @@ git diff
 
 Expected: only permission-scope, schema, tests, and docs changed. `.codegraph` changes are not staged.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -418,6 +418,18 @@ git commit -m "feat: add RAG resource permission scope"
 ```
 
 Expected: commit succeeds without staging `.codegraph`.
+
+## Task 7: Application Completion And Permission Gap Closure
+
+- [x] Protect user-facing Chunk read/write endpoints with KB view/manage permission.
+- [x] Keep internal chunking methods usable by MQ and scheduled ingestion flows.
+- [x] Add `/rag/capabilities` for safe embedding-model and upload-limit discovery.
+- [x] Restrict `/rag/settings` to admins.
+- [x] Open knowledge routes to authenticated users while preserving admin-only routes.
+- [x] Render global knowledge bases as read-only for normal users.
+- [x] Add scope badges and admin scope selection during KB creation.
+- [x] Fix the management workspace mobile sidebar as an overlay drawer.
+- [x] Run focused backend tests, TypeScript checks, production build, and browser role/responsive verification.
 
 ## Self-Review
 
