@@ -65,8 +65,8 @@ public class ThreadPoolExecutorConfig {
     @Bean
     public Executor ragContextExecutor() {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                CPU_COUNT,
-                CPU_COUNT << 1,
+                CPU_COUNT << 2,
+                CPU_COUNT << 2,
                 60,
                 TimeUnit.SECONDS,
                 new SynchronousQueue<>(),
@@ -84,8 +84,8 @@ public class ThreadPoolExecutorConfig {
     @Bean
     public Executor ragRetrievalExecutor() {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                CPU_COUNT,
-                CPU_COUNT << 1,
+                CPU_COUNT << 2,
+                CPU_COUNT << 2,
                 60,
                 TimeUnit.SECONDS,
                 new SynchronousQueue<>(),
@@ -148,6 +148,25 @@ public class ThreadPoolExecutorConfig {
                 new LinkedBlockingQueue<>(200),
                 ThreadFactoryBuilder.create()
                         .setNamePrefix("memory_summary_executor_")
+                        .build(),
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+        return TtlExecutors.getTtlExecutor(executor);
+    }
+
+    /**
+     * 用户长期记忆抽取线程池
+     */
+    @Bean
+    public Executor longTermMemoryExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                1,
+                Math.max(2, CPU_COUNT >> 1),
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(200),
+                ThreadFactoryBuilder.create()
+                        .setNamePrefix("long_term_memory_executor_")
                         .build(),
                 new ThreadPoolExecutor.CallerRunsPolicy()
         );

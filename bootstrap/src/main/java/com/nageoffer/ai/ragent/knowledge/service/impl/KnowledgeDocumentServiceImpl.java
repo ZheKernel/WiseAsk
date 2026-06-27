@@ -22,6 +22,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -55,9 +56,11 @@ import com.nageoffer.ai.ragent.knowledge.controller.vo.KnowledgeDocumentChunkLog
 import com.nageoffer.ai.ragent.knowledge.controller.vo.KnowledgeDocumentSearchVO;
 import com.nageoffer.ai.ragent.knowledge.controller.vo.KnowledgeDocumentVO;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
+import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeChunkDO;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeDocumentChunkLogDO;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeDocumentDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
+import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeChunkMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentChunkLogMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentMapper;
 import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
@@ -69,6 +72,7 @@ import com.nageoffer.ai.ragent.knowledge.schedule.CronScheduleHelper;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeChunkService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentScheduleService;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeDocumentService;
+import com.nageoffer.ai.ragent.rag.core.permission.RagResourcePermissionService;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreService;
 import com.nageoffer.ai.ragent.rag.dto.StoredFileDTO;
@@ -90,6 +94,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -110,18 +115,19 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     private final IngestionEngine ingestionEngine;
     private final ChunkEmbeddingService chunkEmbeddingService;
     private final KnowledgeDocumentChunkLogMapper chunkLogMapper;
+    private final KnowledgeChunkMapper chunkMapper;
     private final TransactionOperations transactionOperations;
     private final MessageQueueProducer messageQueueProducer;
     private final KnowledgeScheduleProperties scheduleProperties;
     private final RemoteFileFetcher remoteFileFetcher;
+    private final RagResourcePermissionService permissionService;
 
     @Value("knowledge-document-chunk_topic${unique-name:}")
     private String chunkTopic;
 
     @Override
     public KnowledgeDocumentVO upload(String kbId, KnowledgeDocumentUploadRequest requestParam, MultipartFile file) {
-        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(kbId);
-        Assert.notNull(kbDO, () -> new ClientException("知识库不存在"));
+        KnowledgeBaseDO kbDO = requireManageableKnowledgeBase(kbId);
 
         SourceType sourceType = SourceType.normalize(requestParam.getSourceType());
         validateSourceAndSchedule(sourceType, requestParam);
@@ -155,6 +161,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
     @Override
     public void startChunk(String docId) {
+        requireManageableDocument(docId);
         KnowledgeDocumentChunkEvent event = KnowledgeDocumentChunkEvent.builder()
                 .docId(docId)
                 .operator(UserContext.getUsername())
@@ -399,6 +406,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     public void delete(String docId) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireManageableKnowledgeBase(documentDO.getKbId());
 
         // 禁止在文档分块运行时删除
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
@@ -423,6 +431,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     public KnowledgeDocumentVO get(String docId) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireViewableKnowledgeBase(documentDO.getKbId());
         return BeanUtil.toBean(documentDO, KnowledgeDocumentVO.class);
     }
 
@@ -431,6 +440,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     public void update(String docId, KnowledgeDocumentUpdateRequest requestParam) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireManageableKnowledgeBase(documentDO.getKbId());
 
         // 禁止在文档分块运行时修改
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
@@ -530,6 +540,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
     @Override
     public IPage<KnowledgeDocumentVO> page(String kbId, KnowledgeDocumentPageRequest requestParam) {
+        requireViewableKnowledgeBase(kbId);
         Page<KnowledgeDocumentDO> pageParam = new Page<>(requestParam.getCurrent(), requestParam.getSize());
         LambdaQueryWrapper<KnowledgeDocumentDO> queryWrapper = Wrappers.lambdaQuery(KnowledgeDocumentDO.class)
                 .eq(KnowledgeDocumentDO::getKbId, kbId)
@@ -538,8 +549,29 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 .eq(requestParam.getStatus() != null && !requestParam.getStatus().isBlank(), KnowledgeDocumentDO::getStatus, requestParam.getStatus())
                 .orderByDesc(KnowledgeDocumentDO::getCreateTime);
 
-        return documentMapper.selectPage(pageParam, queryWrapper)
+        IPage<KnowledgeDocumentVO> result = documentMapper.selectPage(pageParam, queryWrapper)
                 .convert(each -> BeanUtil.toBean(each, KnowledgeDocumentVO.class));
+
+        List<String> docIds = result.getRecords().stream()
+                .map(KnowledgeDocumentVO::getId)
+                .collect(Collectors.toList());
+        Set<String> editedDocIds = findEditedDocIds(docIds);
+        result.getRecords().forEach(vo -> vo.setChunksEdited(editedDocIds.contains(vo.getId())));
+
+        return result;
+    }
+
+    private Set<String> findEditedDocIds(List<String> docIds) {
+        if (docIds == null || docIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        QueryWrapper<KnowledgeChunkDO> wrapper = new QueryWrapper<>();
+        wrapper.select("DISTINCT doc_id")
+                .in("doc_id", docIds)
+                .apply("update_time > create_time + INTERVAL '1 second'");
+        return chunkMapper.selectObjs(wrapper).stream()
+                .map(String::valueOf)
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -575,21 +607,27 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
         List<KnowledgeBaseDO> bases = knowledgeBaseMapper.selectByIds(kbIds);
         Map<String, String> nameMap = new HashMap<>();
+        Set<String> viewableKbIds = new HashSet<>();
         if (bases != null) {
             for (KnowledgeBaseDO base : bases) {
+                if (!permissionService.canViewKnowledgeBase(UserContext.requireUser(), base)) {
+                    continue;
+                }
+                viewableKbIds.add(base.getId());
                 nameMap.put(base.getId(), base.getName());
             }
         }
-        for (KnowledgeDocumentSearchVO record : records) {
-            record.setKbName(nameMap.get(record.getKbId()));
-        }
-        return records;
+        return records.stream()
+                .filter(record -> viewableKbIds.contains(record.getKbId()))
+                .peek(record -> record.setKbName(nameMap.get(record.getKbId())))
+                .toList();
     }
 
     @Override
     public void enable(String docId, boolean enabled) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireManageableKnowledgeBase(documentDO.getKbId());
 
         // 禁止在文档分块运行时修改
         if (DocumentStatus.RUNNING.getCode().equals(documentDO.getStatus())) {
@@ -642,6 +680,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
     @Override
     public IPage<KnowledgeDocumentChunkLogVO> getChunkLogs(String docId, Page<KnowledgeDocumentChunkLogVO> page) {
+        requireManageableDocument(docId);
         Page<KnowledgeDocumentChunkLogDO> mpPage = new Page<>(page.getCurrent(), page.getSize());
         LambdaQueryWrapper<KnowledgeDocumentChunkLogDO> qw = new LambdaQueryWrapper<KnowledgeDocumentChunkLogDO>()
                 .eq(KnowledgeDocumentChunkLogDO::getDocId, docId)
@@ -797,6 +836,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     public String preview(String docId) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireViewableKnowledgeBase(documentDO.getKbId());
         if (!"markdown".equalsIgnoreCase(documentDO.getFileType())) {
             throw new ClientException("仅支持预览 markdown 格式文档");
         }
@@ -818,5 +858,30 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         } catch (Exception e) {
             log.warn("删除文档存储文件失败, docId={}, fileUrl={}", documentDO.getId(), documentDO.getFileUrl(), e);
         }
+    }
+
+    private KnowledgeDocumentDO requireManageableDocument(String docId) {
+        KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
+        Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
+        requireManageableKnowledgeBase(documentDO.getKbId());
+        return documentDO;
+    }
+
+    private KnowledgeBaseDO requireViewableKnowledgeBase(String kbId) {
+        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(kbId);
+        Assert.notNull(kbDO, () -> new ClientException("知识库不存在"));
+        if (!permissionService.canViewKnowledgeBase(UserContext.requireUser(), kbDO)) {
+            throw new ClientException("无权限访问知识库");
+        }
+        return kbDO;
+    }
+
+    private KnowledgeBaseDO requireManageableKnowledgeBase(String kbId) {
+        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(kbId);
+        Assert.notNull(kbDO, () -> new ClientException("知识库不存在"));
+        if (!permissionService.canManageKnowledgeBase(UserContext.requireUser(), kbDO)) {
+            throw new ClientException("无权限管理知识库");
+        }
+        return kbDO;
     }
 }

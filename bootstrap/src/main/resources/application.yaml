@@ -57,16 +57,23 @@ rag:
   rate-limit:
     global:
       enabled: true
-      max-concurrent: 1
+      max-concurrent: 10
       max-wait-seconds: 15
       lease-seconds: 30
       poll-interval-ms: 200
 
   memory:
     history-keep-turns: 4
-    summary-start-turns: 5
+    summary-start-turns: 8
     summary-enabled: true
     summary-max-chars: 200
+    summary-update-min-turns: 6
+    summary-trigger-input-tokens: 12000
+    long-term-enabled: true
+    long-term-extraction-enabled: true
+    long-term-recall-limit: 5
+    long-term-extraction-recent-messages: 6
+    long-term-max-content-length: 300
     title-max-length: 30
 
   semaphore:
@@ -87,6 +94,20 @@ rag:
     servers:
       - name: default
         url: http://localhost:9099
+      - name: order
+        url: http://localhost:9100
+        enabled: ${ORDER_MCP_ENABLED:false}
+        auth-enabled: true
+        audience: ${ORDER_MCP_AUDIENCE:order-mcp}
+    identity:
+      secret: ${RAGENT_MCP_SHARED_SECRET:}
+      issuer: ${RAGENT_MCP_ISSUER:ragent}
+      ttl-seconds: 300
+
+  permission:
+    mcp:
+      admin-only-tool-ids:
+        - order_admin_search
 
   search:
     channels:
@@ -110,19 +131,19 @@ ai:
         embedding: /v1/embeddings
     bailian:
       url: https://dashscope.aliyuncs.com
-      api-key: ${BAILIAN_API_KEY:}
+      api-key: sk-3d0237713ac14d0382e3bc086145d2ab
       endpoints:
         chat: /compatible-mode/v1/chat/completions
         rerank: /api/v1/services/rerank/text-rerank/text-rerank
     aihubmix:
       url: https://aihubmix.com
-      api-key: ${AIHUBMIX_API_KEY:}
+      api-key: sk-tCr8yUI3RPw7kkIIBa0b4690F1724d9dAdD937C88c
       endpoints:
         chat: /v1/chat/completions
         embedding: /v1/embeddings
     siliconflow:
       url: https://api.siliconflow.cn
-      api-key: ${SILICONFLOW_API_KEY:}
+      api-key: sk-khvgdmqpjswdvtyvxdmhnexxaqgtwoynjeqykkmbxdxaqtzs
       endpoints:
         chat: /v1/chat/completions
         embedding: /v1/embeddings
@@ -156,9 +177,9 @@ ai:
         model: Pro/zai-org/GLM-4.7
         supports-thinking: true
         priority: 4
-      - id: gpt-5-mini
+      - id: gpt-5.4
         provider: aihubmix
-        model: gpt-5-mini
+        model: gpt-5.4
         priority: 5
 
   embedding:
@@ -193,7 +214,7 @@ ai:
         priority: 100
 
 rustfs:
-  url: http://localhost:9000
+  url: http://127.0.0.1:9001
   access-key-id: rustfsadmin
   secret-access-key: rustfsadmin
 

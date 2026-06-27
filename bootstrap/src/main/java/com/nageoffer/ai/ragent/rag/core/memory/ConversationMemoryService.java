@@ -34,7 +34,18 @@ public interface ConversationMemoryService {
      * @param userId         用户ID
      * @return 对话历史消息列表（包含摘要和历史记录）
      */
-    List<ChatMessage> load(String conversationId, String userId);
+    default List<ChatMessage> load(String conversationId, String userId) {
+        return loadContext(conversationId, userId).recentHistory();
+    }
+
+    /**
+     * 加载对话记忆上下文，摘要和最近原文历史分开返回。
+     *
+     * @param conversationId 对话ID
+     * @param userId         用户ID
+     * @return 对话记忆上下文
+     */
+    ConversationMemoryContext loadContext(String conversationId, String userId);
 
     /**
      * 追加消息到对话历史
@@ -58,8 +69,21 @@ public interface ConversationMemoryService {
      * @return 包含追加前的历史记录
      */
     default List<ChatMessage> loadAndAppend(String conversationId, String userId, ChatMessage message) {
-        List<ChatMessage> history = load(conversationId, userId);
+        ConversationMemoryContext memoryContext = loadContextAndAppend(conversationId, userId, message);
+        return memoryContext.recentHistory();
+    }
+
+    /**
+     * 加载记忆上下文并追加新消息。
+     *
+     * @param conversationId 对话ID
+     * @param userId         用户ID
+     * @param message        要追加的消息
+     * @return 追加前的对话记忆上下文
+     */
+    default ConversationMemoryContext loadContextAndAppend(String conversationId, String userId, ChatMessage message) {
+        ConversationMemoryContext memoryContext = loadContext(conversationId, userId);
         append(conversationId, userId, message);
-        return history;
+        return memoryContext;
     }
 }

@@ -170,6 +170,7 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -187,6 +188,20 @@ export function AdminLayout() {
   const blurTimeoutRef = useRef<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const isDashboardRoute = location.pathname.startsWith("/admin/dashboard");
+  const isAdmin = user?.role === "admin";
+  const visibleMenuGroups = useMemo<MenuGroup[]>(
+    () => isAdmin
+      ? menuGroups
+      : [{
+          title: "知识库",
+          items: menuGroups[0].items.filter((item) => item.path === "/admin/knowledge")
+        }],
+    [isAdmin]
+  );
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname, location.search]);
 
   const handleLogout = async () => {
     await logout();
@@ -256,7 +271,7 @@ export function AdminLayout() {
   const breadcrumbs = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
     const items: { label: string; to?: string }[] = [
-      { label: "首页", to: "/admin/dashboard" }
+      { label: "首页", to: isAdmin ? "/admin/dashboard" : "/admin/knowledge" }
     ];
 
     if (segments[0] !== "admin") return items;
@@ -303,7 +318,7 @@ export function AdminLayout() {
     }
 
     if (section === "knowledge" && segments.includes("docs")) {
-      items.push({ label: "切片管理" });
+      items.push({ label: "分块管理" });
     }
 
     if (section === "traces" && segments.length > 2) {
@@ -311,7 +326,7 @@ export function AdminLayout() {
     }
 
     return items;
-  }, [location.pathname, location.search]);
+  }, [isAdmin, location.pathname, location.search]);
 
   const avatarUrl = user?.avatar?.trim();
   const showAvatar = Boolean(avatarUrl);
@@ -434,21 +449,39 @@ export function AdminLayout() {
 
   return (
     <div className="admin-layout flex h-screen">
-      <aside className={cn("admin-sidebar", collapsed && "admin-sidebar--collapsed")}>
+      {mobileSidebarOpen ? (
+        <button
+          type="button"
+          aria-label="关闭侧边栏"
+          className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      ) : null}
+      <aside
+        className={cn(
+          "admin-sidebar fixed inset-y-0 left-0 z-50 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0",
+          mobileSidebarOpen && "translate-x-0",
+          collapsed && "admin-sidebar--collapsed"
+        )}
+      >
         <div className="admin-sidebar__brand">
           <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
             <div className="admin-sidebar__logo">R</div>
             {!collapsed && (
               <div className="min-w-0">
-                <h1 className="admin-sidebar__title">Ragent AI 管理后台</h1>
-                <p className="admin-sidebar__subtitle">Knowledge Console</p>
+                <h1 className="admin-sidebar__title">
+                  {isAdmin ? "Ragent AI 管理后台" : "Ragent AI 知识库"}
+                </h1>
+                <p className="admin-sidebar__subtitle">
+                  {isAdmin ? "Knowledge Console" : "Personal Knowledge"}
+                </p>
               </div>
             )}
           </div>
         </div>
 
         <nav className="flex-1 space-y-4 px-2 pb-4">
-          {menuGroups.map((group) => (
+          {visibleMenuGroups.map((group) => (
             <div key={group.title} className="space-y-2">
               {!collapsed && (
                 <p className="admin-sidebar__group-title">{group.title}</p>
@@ -586,7 +619,7 @@ export function AdminLayout() {
 
       <div
         className={cn(
-          "admin-main flex min-h-screen flex-1 flex-col overflow-auto",
+          "admin-main flex min-h-screen min-w-0 flex-1 flex-col overflow-auto",
           isDashboardRoute && "dashboard-scroll-shell"
         )}
       >
@@ -597,7 +630,7 @@ export function AdminLayout() {
                 variant="ghost"
                 size="icon"
                 className="lg:hidden"
-                onClick={() => setCollapsed((prev) => !prev)}
+                onClick={() => setMobileSidebarOpen((prev) => !prev)}
                 aria-label="切换侧边栏"
               >
                 <Menu className="h-5 w-5" />

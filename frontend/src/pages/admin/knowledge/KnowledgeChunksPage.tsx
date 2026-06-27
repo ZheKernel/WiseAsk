@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { RelativeTime } from "@/components/RelativeTime";
 
-import type { KnowledgeChunk, KnowledgeDocument, PageResult } from "@/services/knowledgeService";
+import type { KnowledgeBase, KnowledgeChunk, KnowledgeDocument, PageResult } from "@/services/knowledgeService";
 import {
   batchToggleChunks,
   createChunk,
@@ -22,9 +23,12 @@ import {
   toggleChunk,
   getChunksPage,
   getDocument,
+  getKnowledgeBase,
   updateChunk
 } from "@/services/knowledgeService";
+import { useAuthStore } from "@/stores/authStore";
 import { getErrorMessage } from "@/utils/error";
+import { canManageKnowledgeBase } from "@/utils/knowledgePermission";
 
 const PAGE_SIZE = 10;
 
@@ -34,19 +38,14 @@ const truncateText = (value?: string | null, max = 120) => {
   return `${value.slice(0, max)}...`;
 };
 
-const formatDate = (value?: string | null) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN");
-};
-
 const enabledLabel = (enabled?: number | null) => (enabled === 1 ? "启用" : "禁用");
 
 export function KnowledgeChunksPage() {
   const { kbId, docId } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const [doc, setDoc] = useState<KnowledgeDocument | null>(null);
+  const [kb, setKb] = useState<KnowledgeBase | null>(null);
   const [pageData, setPageData] = useState<PageResult<KnowledgeChunk> | null>(null);
   const [pageNo, setPageNo] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -61,6 +60,7 @@ export function KnowledgeChunksPage() {
   const chunks = pageData?.records || [];
 
   const selectedList = useMemo(() => Array.from(selectedIds), [selectedIds]);
+  const canManage = useMemo(() => canManageKnowledgeBase(kb, user), [kb, user]);
 
   const loadDocument = async () => {
     if (!docId) return;
@@ -94,6 +94,12 @@ export function KnowledgeChunksPage() {
   useEffect(() => {
     loadDocument();
   }, [docId]);
+
+  useEffect(() => {
+    if (kbId) {
+      getKnowledgeBase(kbId).then(setKb).catch(() => {});
+    }
+  }, [kbId]);
 
   useEffect(() => {
     loadChunks();
@@ -183,17 +189,19 @@ export function KnowledgeChunksPage() {
         <div>
           <h1 className="admin-page-title">分块管理</h1>
           <p className="admin-page-subtitle">
-            {doc?.docName || docId} {kbId ? `（知识库: ${kbId}）` : ""}
+            {doc?.docName || docId} {kb?.name ? `（知识库: ${kb.name}）` : ""}
           </p>
         </div>
         <div className="admin-page-actions">
           <Button variant="outline" onClick={() => navigate(`/admin/knowledge/${kbId}`)}>
             返回文档
           </Button>
-          <Button className="admin-primary-gradient" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            新建分块
-          </Button>
+          {canManage ? (
+            <Button className="admin-primary-gradient" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              新建分块
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -202,7 +210,9 @@ export function KnowledgeChunksPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle>Chunk 列表</CardTitle>
-              <CardDescription>支持编辑、启停、批量操作</CardDescription>
+              <CardDescription>
+                {canManage ? "支持编辑、启停、批量操作" : "全局知识库为只读模式"}
+              </CardDescription>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
               <Select
@@ -231,14 +241,18 @@ export function KnowledgeChunksPage() {
                 <RefreshCw className="mr-2 h-4 w-4" />
                 刷新
               </Button>
-              <Button variant="outline" onClick={() => handleBatchToggle(true)} disabled={selectedList.length === 0}>
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                批量启用
-              </Button>
-              <Button variant="outline" onClick={() => handleBatchToggle(false)} disabled={selectedList.length === 0}>
-                <ShieldX className="mr-2 h-4 w-4" />
-                批量禁用
-              </Button>
+              {canManage ? (
+                <>
+                  <Button variant="outline" onClick={() => handleBatchToggle(true)} disabled={selectedList.length === 0}>
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    批量启用
+                  </Button>
+                  <Button variant="outline" onClick={() => handleBatchToggle(false)} disabled={selectedList.length === 0}>
+                    <ShieldX className="mr-2 h-4 w-4" />
+                    批量禁用
+                  </Button>
+                </>
+              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -251,9 +265,11 @@ export function KnowledgeChunksPage() {
             <Table className="min-w-[960px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[48px]">
-                    <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
-                  </TableHead>
+                  {canManage ? (
+                    <TableHead className="w-[48px]">
+                      <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+                    </TableHead>
+                  ) : null}
                   <TableHead className="w-[70px]">序号</TableHead>
                   <TableHead>内容</TableHead>
                   <TableHead className="w-[90px]">状态</TableHead>
@@ -274,19 +290,21 @@ export function KnowledgeChunksPage() {
                     </span>
                   </TableHead>
                   <TableHead className="w-[170px]">更新时间</TableHead>
-                  <TableHead className="w-[140px] text-left">操作</TableHead>
+                  {canManage ? <TableHead className="w-[140px] text-left">操作</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {chunks.map((chunk) => (
                   <TableRow key={chunk.id}>
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(String(chunk.id))}
-                        onChange={() => toggleSelect(String(chunk.id))}
-                      />
-                    </TableCell>
+                    {canManage ? (
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(String(chunk.id))}
+                          onChange={() => toggleSelect(String(chunk.id))}
+                        />
+                      </TableCell>
+                    ) : null}
                     <TableCell>{chunk.chunkIndex ?? "-"}</TableCell>
                     <TableCell className="max-w-[360px] text-sm text-muted-foreground break-all">
                       {truncateText(chunk.content)}
@@ -298,27 +316,29 @@ export function KnowledgeChunksPage() {
                     </TableCell>
                     <TableCell>{chunk.charCount ?? "-"}</TableCell>
                     <TableCell>{chunk.tokenCount ?? "-"}</TableCell>
-                    <TableCell>{formatDate(chunk.updateTime)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setEditDialog({ open: true, chunk })}>
-                          <PenSquare className="mr-0.1 h-4 w-4" />
-                          编辑
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleToggleEnabled(chunk)}>
-                          {chunk.enabled === 1 ? "禁用" : "启用"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget(chunk)}
-                        >
-                          <Trash2 className="mr-0.1 h-4 w-4" />
-                          删除
-                        </Button>
-                      </div>
-                    </TableCell>
+                    <TableCell><RelativeTime value={chunk.updateTime} /></TableCell>
+                    {canManage ? (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setEditDialog({ open: true, chunk })}>
+                            <PenSquare className="mr-0.1 h-4 w-4" />
+                            编辑
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleToggleEnabled(chunk)}>
+                            {chunk.enabled === 1 ? "禁用" : "启用"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(chunk)}
+                          >
+                            <Trash2 className="mr-0.1 h-4 w-4" />
+                            删除
+                          </Button>
+                        </div>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>
@@ -351,7 +371,7 @@ export function KnowledgeChunksPage() {
 
       <ChunkDialog
         mode="create"
-        open={createOpen}
+        open={canManage && createOpen}
         onOpenChange={setCreateOpen}
         onSubmit={async (payload) => {
           if (!docId) return;
@@ -364,7 +384,7 @@ export function KnowledgeChunksPage() {
 
       <ChunkDialog
         mode="edit"
-        open={editDialog.open}
+        open={canManage && editDialog.open}
         chunk={editDialog.chunk}
         onOpenChange={(open) => setEditDialog({ open, chunk: open ? editDialog.chunk : null })}
         onSubmit={async (payload) => {

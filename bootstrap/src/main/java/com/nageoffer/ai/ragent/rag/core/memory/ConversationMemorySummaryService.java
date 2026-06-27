@@ -23,7 +23,5 @@ public interface ConversationMemorySummaryService {
 
     void compressIfNeeded(String conversationId, String userId, ChatMessage message);
 
-    ChatMessage loadLatestSummary(String conversationId, String userId);
-
-    ChatMessage decorateIfNeeded(ChatMessage summary);
+    String loadLatestSummary(String conversationId, String userId);
 }

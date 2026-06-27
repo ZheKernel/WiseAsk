@@ -49,6 +49,7 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.RAG_ENTERPRISE_PR
 public class RAGPromptService {
 
     private final PromptTemplateLoader templateLoader;
+    private final PromptContextAssembler contextAssembler = new PromptContextAssembler();
 
     /**
      * 生成系统提示词，并对模板格式做清理
@@ -62,34 +63,34 @@ public class RAGPromptService {
     }
 
     /**
-     * 构造发送给 LLM 的完整消息列表（system + evidence + history + user）
+     * 构造发送给 LLM 的完整消息列表（stable + semi-stable + history + ephemeral）
      */
     public List<ChatMessage> buildStructuredMessages(PromptContext context,
                                                      List<ChatMessage> history,
                                                      String question,
                                                      List<String> subQuestions) {
-        List<ChatMessage> messages = new ArrayList<>();
-
-        // 1. 系统提示词
         String systemPrompt = buildSystemPrompt(context);
-        if (StrUtil.isNotBlank(systemPrompt)) {
-            messages.add(ChatMessage.system(systemPrompt));
-        }
+        List<PromptContextLayer> leadingLayers = new ArrayList<>();
+        leadingLayers.add(new PromptContextLayer(
+                "system",
+                PromptContextLayer.Stability.STABLE,
+                ChatMessage.Role.SYSTEM,
+                systemPrompt
+        ));
+        leadingLayers.add(buildLongTermMemoryLayer(context));
+        leadingLayers.add(buildConversationSummaryLayer(context));
 
-        // 2. 对话历史（含摘要，摘要作为 history[0] 的 system message 自然紧跟系统提示词）
-        if (CollUtil.isNotEmpty(history)) {
-            messages.addAll(history);
-        }
-
-        // 3. 证据 + 问题（合并为一条 user message）
         String evidenceBody = buildEvidenceBody(context);
         String userQuestion = buildUserQuestion(question, subQuestions);
         String userContent = mergeEvidenceAndQuestion(evidenceBody, userQuestion);
-        if (StrUtil.isNotBlank(userContent)) {
-            messages.add(ChatMessage.user(userContent));
-        }
+        PromptContextLayer finalLayer = new PromptContextLayer(
+                "dynamic-request",
+                PromptContextLayer.Stability.EPHEMERAL,
+                ChatMessage.Role.USER,
+                userContent
+        );
 
-        return messages;
+        return contextAssembler.assemble(leadingLayers, history, finalLayer);
     }
 
     private PromptPlan planPrompt(List<NodeScore> intents, Map<String, List<RetrievedChunk>> intentChunks) {
@@ -213,21 +214,55 @@ public class RAGPromptService {
         return evidenceBody + "\n\n" + question;
     }
 
+    private PromptContextLayer buildConversationSummaryLayer(PromptContext context) {
+        if (StrUtil.isBlank(context.getConversationSummary())) {
+            return null;
+        }
+        String content = renderSection("summary-wrapper", Map.of(
+                "content", context.getConversationSummary().trim()
+        ));
+        return new PromptContextLayer(
+                "conversation-summary",
+                PromptContextLayer.Stability.SEMI_STABLE,
+                ChatMessage.Role.USER,
+                content
+        );
+    }
+
+    private PromptContextLayer buildLongTermMemoryLayer(PromptContext context) {
+        if (StrUtil.isBlank(context.getLongTermMemory())) {
+            return null;
+        }
+        return new PromptContextLayer(
+                "long-term-memory",
+                PromptContextLayer.Stability.SEMI_STABLE,
+                ChatMessage.Role.USER,
+                context.getLongTermMemory().trim()
+        );
+    }
+
     /**
      * 将 MCP 和 KB 证据合并为一个文本块，各自有值时用对应 section 渲染
      */
     private String buildEvidenceBody(PromptContext context) {
         StringBuilder sb = new StringBuilder();
         if (StrUtil.isNotBlank(context.getMcpContext())) {
-            sb.append(renderSection("mcp-evidence", Map.of("body", context.getMcpContext().trim())));
+            appendEvidenceSection(sb, renderSection("mcp-evidence", Map.of("body", context.getMcpContext().trim())));
         }
         if (StrUtil.isNotBlank(context.getKbContext())) {
-            if (!sb.isEmpty()) {
-                sb.append("\n\n");
-            }
-            sb.append(renderSection("kb-evidence", Map.of("body", context.getKbContext().trim())));
+            appendEvidenceSection(sb, renderSection("kb-evidence", Map.of("body", context.getKbContext().trim())));
         }
         return sb.toString().trim();
+    }
+
+    private void appendEvidenceSection(StringBuilder sb, String section) {
+        if (StrUtil.isBlank(section)) {
+            return;
+        }
+        if (!sb.isEmpty()) {
+            sb.append("\n\n");
+        }
+        sb.append(section);
     }
 
     private String renderSection(String section, Map<String, String> slots) {

@@ -19,10 +19,10 @@ package com.nageoffer.ai.ragent.rag.core.memory;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.nageoffer.ai.ragent.rag.config.MemoryProperties;
-import com.nageoffer.ai.ragent.rag.controller.vo.ConversationMessageVO;
+import com.nageoffer.ai.ragent.rag.dao.entity.ConversationMessageDO;
+import com.nageoffer.ai.ragent.rag.dao.entity.ConversationSummaryDO;
 import com.nageoffer.ai.ragent.framework.convention.ChatMessage;
-import com.nageoffer.ai.ragent.rag.enums.ConversationMessageOrder;
+import com.nageoffer.ai.ragent.rag.service.ConversationGroupService;
 import com.nageoffer.ai.ragent.rag.service.ConversationMessageService;
 import com.nageoffer.ai.ragent.rag.service.ConversationService;
 import com.nageoffer.ai.ragent.rag.service.bo.ConversationCreateBO;
@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,35 +41,24 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
 
     private final ConversationService conversationService;
     private final ConversationMessageService conversationMessageService;
-    private final MemoryProperties memoryProperties;
+    private final ConversationGroupService conversationGroupService;
 
     public JdbcConversationMemoryStore(ConversationService conversationService,
                                        ConversationMessageService conversationMessageService,
-                                       MemoryProperties memoryProperties) {
+                                       ConversationGroupService conversationGroupService) {
         this.conversationService = conversationService;
         this.conversationMessageService = conversationMessageService;
-        this.memoryProperties = memoryProperties;
+        this.conversationGroupService = conversationGroupService;
     }
 
     @Override
     public List<ChatMessage> loadHistory(String conversationId, String userId) {
-        int maxMessages = resolveMaxHistoryMessages();
-        List<ConversationMessageVO> dbMessages = conversationMessageService.listMessages(
-                conversationId,
-                userId,
-                maxMessages,
-                ConversationMessageOrder.DESC
-        );
-        if (CollUtil.isEmpty(dbMessages)) {
-            return List.of();
+        String summaryLastMessageId = resolveSummaryLastMessageId(conversationId, userId);
+        if (StrUtil.isNotBlank(summaryLastMessageId)) {
+            return loadHistoryFromCheckpoint(conversationId, userId, summaryLastMessageId);
         }
 
-        List<ChatMessage> result = dbMessages.stream()
-                .map(this::toChatMessage)
-                .filter(this::isHistoryMessage)
-                .collect(Collectors.toList());
-
-        return normalizeHistory(result);
+        return loadHistoryFromCheckpoint(conversationId, userId, null);
     }
 
     @Override
@@ -100,7 +90,7 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
         // JDBC 直读模式，无需刷新缓存
     }
 
-    private ChatMessage toChatMessage(ConversationMessageVO record) {
+    private ChatMessage toChatMessage(ConversationMessageDO record) {
         if (record == null || StrUtil.isBlank(record.getContent())) {
             return null;
         }
@@ -108,6 +98,36 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
                 ChatMessage.Role.fromString(record.getRole()),
                 record.getContent()
         );
+    }
+
+    private List<ChatMessage> loadHistoryFromCheckpoint(String conversationId, String userId, String afterId) {
+        List<ConversationMessageDO> dbMessages = conversationGroupService.listMessagesBetweenIds(
+                conversationId,
+                userId,
+                afterId,
+                null
+        );
+        if (CollUtil.isEmpty(dbMessages)) {
+            return List.of();
+        }
+        List<ChatMessage> result = dbMessages.stream()
+                .map(this::toChatMessage)
+                .filter(Objects::nonNull)
+                .filter(this::isHistoryMessage)
+                .collect(Collectors.toList());
+        return normalizeHistory(result);
+    }
+
+    private String resolveSummaryLastMessageId(String conversationId, String userId) {
+        ConversationSummaryDO summary = conversationGroupService.findLatestSummary(conversationId, userId);
+        if (summary == null) {
+            return null;
+        }
+        if (StrUtil.isNotBlank(summary.getLastMessageId())) {
+            return summary.getLastMessageId();
+        }
+        Date summaryTime = summary.getUpdateTime() == null ? summary.getCreateTime() : summary.getUpdateTime();
+        return conversationGroupService.findMaxMessageIdAtOrBefore(conversationId, userId, summaryTime);
     }
 
     private List<ChatMessage> normalizeHistory(List<ChatMessage> messages) {
@@ -130,8 +150,4 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
                 && StrUtil.isNotBlank(message.getContent());
     }
 
-    private int resolveMaxHistoryMessages() {
-        int maxTurns = memoryProperties.getHistoryKeepTurns();
-        return maxTurns * 2;
-    }
 }

@@ -1,0 +1,22 @@
+server:
+  port: 9100
+
+spring:
+  application:
+    name: ragent-order-mcp-server
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${ORDER_DB_URL:jdbc:postgresql://127.0.0.1:5432/ragent_order}
+    username: ${ORDER_DB_USERNAME:postgres}
+    password: ${ORDER_DB_PASSWORD:}
+    hikari:
+      read-only: true
+      connection-timeout: 5000
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+order-mcp:
+  auth:
+    secret: ${RAGENT_MCP_SHARED_SECRET:}
+    issuer: ${RAGENT_MCP_ISSUER:ragent}
+    audience: ${ORDER_MCP_AUDIENCE:order-mcp}

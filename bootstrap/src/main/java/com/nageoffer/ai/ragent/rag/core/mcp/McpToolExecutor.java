@@ -17,6 +17,7 @@
 
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
+import com.nageoffer.ai.ragent.framework.context.LoginUser;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 
@@ -38,9 +39,10 @@ public interface McpToolExecutor {
      * 执行工具调用
      *
      * @param parameters 调用参数
+     * @param caller     verified Ragent caller
      * @return 工具调用结果（使用官方 SDK 的 CallToolResult）
      */
-    CallToolResult execute(Map<String, Object> parameters);
+    CallToolResult execute(Map<String, Object> parameters, LoginUser caller);
 
     /**
      * 工具 ID（快捷方法）

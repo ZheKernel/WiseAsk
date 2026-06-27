@@ -37,10 +37,15 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
   }
 
   if (user?.role !== "admin") {
-    return <Navigate to="/chat" replace />;
+    return <Navigate to="/admin/knowledge" replace />;
   }
 
   return children;
+}
+
+function AdminHomeRedirect() {
+  const user = useAuthStore((state) => state.user);
+  return <Navigate to={user?.role === "admin" ? "/admin/dashboard" : "/admin/knowledge"} replace />;
 }
 
 function RedirectIfAuth({ children }: { children: JSX.Element }) {
@@ -88,18 +93,22 @@ export const router = createBrowserRouter([
   {
     path: "/admin",
     element: (
-      <RequireAdmin>
+      <RequireAuth>
         <AdminLayout />
-      </RequireAdmin>
+      </RequireAuth>
     ),
     children: [
       {
         index: true,
-        element: <Navigate to="/admin/dashboard" replace />
+        element: <AdminHomeRedirect />
       },
       {
         path: "dashboard",
-        element: <DashboardPage />
+        element: (
+          <RequireAdmin>
+            <DashboardPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "knowledge",
@@ -115,43 +124,83 @@ export const router = createBrowserRouter([
       },
       {
         path: "intent-tree",
-        element: <IntentTreePage />
+        element: (
+          <RequireAdmin>
+            <IntentTreePage />
+          </RequireAdmin>
+        )
       },
       {
         path: "intent-list",
-        element: <IntentListPage />
+        element: (
+          <RequireAdmin>
+            <IntentListPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "intent-list/:id/edit",
-        element: <IntentEditPage />
+        element: (
+          <RequireAdmin>
+            <IntentEditPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "ingestion",
-        element: <IngestionPage />
+        element: (
+          <RequireAdmin>
+            <IngestionPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "traces",
-        element: <RagTracePage />
+        element: (
+          <RequireAdmin>
+            <RagTracePage />
+          </RequireAdmin>
+        )
       },
       {
         path: "traces/:traceId",
-        element: <RagTraceDetailPage />
+        element: (
+          <RequireAdmin>
+            <RagTraceDetailPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "settings",
-        element: <SystemSettingsPage />
+        element: (
+          <RequireAdmin>
+            <SystemSettingsPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "sample-questions",
-        element: <SampleQuestionPage />
+        element: (
+          <RequireAdmin>
+            <SampleQuestionPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "mappings",
-        element: <QueryTermMappingPage />
+        element: (
+          <RequireAdmin>
+            <QueryTermMappingPage />
+          </RequireAdmin>
+        )
       },
       {
         path: "users",
-        element: <UserListPage />
+        element: (
+          <RequireAdmin>
+            <UserListPage />
+          </RequireAdmin>
+        )
       }
     ]
   },

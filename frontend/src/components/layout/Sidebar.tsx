@@ -213,19 +213,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <span className="block text-xs text-[#94A3B8]">从空白开始</span>
                 </span>
               </button>
-              {user?.role === "admin" ? (
-                <button
-                  type="button"
-                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/70 px-3 py-1.5 text-xs font-semibold text-[#1D4ED8] transition-colors hover:bg-white"
-                  onClick={() => {
-                    window.open("/admin", "_blank");
-                    onClose();
-                  }}
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                  管理后台
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/70 px-3 py-1.5 text-xs font-semibold text-[#1D4ED8] transition-colors hover:bg-white"
+                onClick={() => {
+                  window.open(user?.role === "admin" ? "/admin" : "/admin/knowledge", "_blank");
+                  onClose();
+                }}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                {user?.role === "admin" ? "管理后台" : "我的知识库"}
+              </button>
             </div>
           </div>
           <div className="rounded-2xl border border-[#E6EEF6] bg-white p-3 shadow-[0_12px_26px_rgba(15,23,42,0.06)]">

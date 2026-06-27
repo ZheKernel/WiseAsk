@@ -36,4 +36,9 @@ public class KnowledgeBaseCreateRequest {
      * Milvus Collection 名称
      */
     private String collectionName;
+
+    /**
+     * 知识库作用域：GLOBAL/PERSONAL，仅管理员可创建 GLOBAL
+     */
+    private String scope;
 }

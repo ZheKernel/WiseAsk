@@ -18,21 +18,17 @@
 package com.nageoffer.ai.ragent.rag.core.retrieve.channel;
 
 import cn.hutool.core.collection.CollUtil;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
-import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
-import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
 import com.nageoffer.ai.ragent.rag.core.intent.NodeScore;
 import com.nageoffer.ai.ragent.rag.core.retrieve.RetrieverService;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.strategy.CollectionParallelRetriever;
+import com.nageoffer.ai.ragent.rag.dto.SubQuestionIntent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executor;
 
 /**
@@ -43,15 +39,12 @@ import java.util.concurrent.Executor;
 public class VectorGlobalSearchChannel implements SearchChannel {
 
     private final SearchChannelProperties properties;
-    private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final CollectionParallelRetriever parallelRetriever;
 
     public VectorGlobalSearchChannel(RetrieverService retrieverService,
                                      SearchChannelProperties properties,
-                                     KnowledgeBaseMapper knowledgeBaseMapper,
                                      Executor innerRetrievalExecutor) {
         this.properties = properties;
-        this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.parallelRetriever = new CollectionParallelRetriever(retrieverService, innerRetrievalExecutor);
     }
 
@@ -71,8 +64,16 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         if (!properties.getChannels().getVectorGlobal().isEnabled()) {
             return false;
         }
+        if (CollUtil.isEmpty(context.getAuthorizedCollections())) {
+            return false;
+        }
 
-        List<NodeScore> allScores = context.getIntents().stream()
+        // 意图定向检索关闭时，全局检索必须兜底，否则无通道可用
+        if (!properties.getChannels().getIntentDirected().isEnabled()) {
+            return true;
+        }
+
+        List<NodeScore> allScores = (context.getIntents() == null ? List.<SubQuestionIntent>of() : context.getIntents()).stream()
                 .flatMap(si -> si.nodeScores().stream())
                 .toList();
         if (CollUtil.isEmpty(allScores)) {
@@ -107,8 +108,8 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         try {
             log.info("执行向量全局检索，问题：{}", context.getMainQuestion());
 
-            // 获取所有 KB 类型的 collection
-            List<String> collections = getAllKBCollections();
+            // 获取当前用户可检索的 collection
+            List<String> collections = getAuthorizedCollections(context);
 
             if (collections.isEmpty()) {
                 log.warn("未找到任何 KB collection，跳过全局检索");
@@ -151,25 +152,10 @@ public class VectorGlobalSearchChannel implements SearchChannel {
     }
 
     /**
-     * 获取所有 KB 类型的 collection
+     * 获取当前用户可检索的 collection
      */
-    private List<String> getAllKBCollections() {
-        Set<String> collections = new HashSet<>();
-
-        // 从知识库表获取全量 collection（全局检索兜底）
-        List<KnowledgeBaseDO> kbList = knowledgeBaseMapper.selectList(
-                Wrappers.lambdaQuery(KnowledgeBaseDO.class)
-                        .select(KnowledgeBaseDO::getCollectionName)
-                        .eq(KnowledgeBaseDO::getDeleted, 0)
-        );
-        for (KnowledgeBaseDO kb : kbList) {
-            String collectionName = kb.getCollectionName();
-            if (collectionName != null && !collectionName.isBlank()) {
-                collections.add(collectionName);
-            }
-        }
-
-        return new ArrayList<>(collections);
+    private List<String> getAuthorizedCollections(SearchContext context) {
+        return new ArrayList<>(context.getAuthorizedCollections());
     }
 
     /**

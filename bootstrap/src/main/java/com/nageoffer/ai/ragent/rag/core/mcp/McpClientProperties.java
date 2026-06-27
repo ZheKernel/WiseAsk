@@ -39,6 +39,11 @@ public class McpClientProperties {
     public static class ServerConfig {
 
         /**
+         * Whether this MCP server should be connected.
+         */
+        private boolean enabled = true;
+
+        /**
          * 服务名称
          */
         private String name;
@@ -47,5 +52,15 @@ public class McpClientProperties {
          * 服务地址
          */
         private String url;
+
+        /**
+         * Whether Ragent should attach an internal caller identity token.
+         */
+        private boolean authEnabled;
+
+        /**
+         * Expected audience of identity tokens for this MCP server.
+         */
+        private String audience;
     }
 }

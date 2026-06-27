@@ -18,6 +18,7 @@
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -46,6 +47,8 @@ public class McpClientAutoConfiguration {
 
     private final McpClientProperties properties;
     private final McpToolRegistry toolRegistry;
+    private final McpIdentityTokenService identityTokenService;
+    private final McpRequestIdentityContext requestIdentityContext;
 
     private final List<McpSyncClient> clients = new ArrayList<>();
 
@@ -58,6 +61,10 @@ public class McpClientAutoConfiguration {
         }
 
         for (McpClientProperties.ServerConfig server : servers) {
+            if (!server.isEnabled()) {
+                log.info("MCP Server [{}] 已禁用，跳过工具注册", server.getName());
+                continue;
+            }
             registerRemoteTools(server);
         }
     }
@@ -69,12 +76,29 @@ public class McpClientAutoConfiguration {
 
         try {
             String mcpUrl = serverUrl.endsWith("/mcp") ? serverUrl : serverUrl + "/mcp";
-            HttpClientStreamableHttpTransport transport =
-                    HttpClientStreamableHttpTransport.builder(mcpUrl).build();
+            HttpClientStreamableHttpTransport.Builder transportBuilder =
+                    HttpClientStreamableHttpTransport.builder(mcpUrl);
+            if (server.isAuthEnabled()) {
+                if (StrUtil.isBlank(server.getAudience())) {
+                    throw new IllegalArgumentException("Authenticated MCP server audience must not be blank");
+                }
+                transportBuilder.httpRequestCustomizer(McpHttpAuthorizationSupport.bearerTokenCustomizer());
+            }
+            HttpClientStreamableHttpTransport transport = transportBuilder.build();
 
-            McpSyncClient client = McpClient.sync(transport)
-                    .clientInfo(new Implementation("ragent-bootstrap", "1.0.0"))
-                    .build();
+            McpClient.SyncSpec clientSpec = McpClient.sync(transport)
+                    .clientInfo(new Implementation("ragent-bootstrap", "1.0.0"));
+            if (server.isAuthEnabled()) {
+                clientSpec.transportContextProvider(() -> {
+                    String token = requestIdentityContext.currentToken();
+                    return McpHttpAuthorizationSupport.transportContext(
+                            StrUtil.isNotBlank(token)
+                                    ? token
+                                    : identityTokenService.issueServiceIdentity(server.getAudience())
+                    );
+                });
+            }
+            McpSyncClient client = clientSpec.build();
             client.initialize();
             clients.add(client);
 
@@ -87,7 +111,14 @@ public class McpClientAutoConfiguration {
             log.info("MCP Server [{}] 返回 {} 个工具", serverName, tools.size());
 
             for (Tool tool : tools) {
-                McpClientToolExecutor executor = new McpClientToolExecutor(client, tool);
+                McpClientToolExecutor executor = new McpClientToolExecutor(
+                        client,
+                        tool,
+                        server.isAuthEnabled(),
+                        server.getAudience(),
+                        identityTokenService,
+                        requestIdentityContext
+                );
                 toolRegistry.register(executor);
             }
         } catch (Exception e) {

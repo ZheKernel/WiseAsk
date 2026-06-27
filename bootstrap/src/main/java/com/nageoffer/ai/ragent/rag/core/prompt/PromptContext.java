@@ -39,6 +39,16 @@ public class PromptContext {
     private String question;
 
     /**
+     * 对话压缩摘要，作为证据数据块注入，不作为 System 规则
+     */
+    private String conversationSummary;
+
+    /**
+     * 用户长期记忆，作为半稳定上下文注入，不作为 System 规则
+     */
+    private String longTermMemory;
+
+    /**
      * MCP 工具调用返回的上下文文本（已格式化）
      */
     private String mcpContext;

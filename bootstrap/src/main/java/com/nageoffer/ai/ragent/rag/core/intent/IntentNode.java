@@ -61,6 +61,11 @@ public class IntentNode {
     private String parentId;
 
     /**
+     * 展示与 Prompt 渲染排序，值越小越靠前
+     */
+    private Integer sortOrder;
+
+    /**
      * 示例问题：尤其是“叶子节点”，可以放典型问法，帮助向量模型更精准对齐
      */
     @Builder.Default

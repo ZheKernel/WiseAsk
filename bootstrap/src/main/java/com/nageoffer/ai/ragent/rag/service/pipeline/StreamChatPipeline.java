@@ -27,7 +27,9 @@ import com.nageoffer.ai.ragent.infra.chat.StreamCancellationHandle;
 import com.nageoffer.ai.ragent.rag.core.guidance.GuidanceDecision;
 import com.nageoffer.ai.ragent.rag.core.guidance.IntentGuidanceService;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentResolver;
+import com.nageoffer.ai.ragent.rag.core.memory.ConversationMemoryContext;
 import com.nageoffer.ai.ragent.rag.core.memory.ConversationMemoryService;
+import com.nageoffer.ai.ragent.rag.core.memory.LongTermMemoryService;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptContext;
 import com.nageoffer.ai.ragent.rag.core.prompt.PromptTemplateLoader;
 import com.nageoffer.ai.ragent.rag.core.prompt.RAGPromptService;
@@ -63,6 +65,7 @@ public class StreamChatPipeline {
 
     private final SearchChannelProperties searchProperties;
     private final ConversationMemoryService memoryService;
+    private final LongTermMemoryService longTermMemoryService;
     private final QueryRewriteService queryRewriteService;
     private final IntentResolver intentResolver;
     private final IntentGuidanceService guidanceService;
@@ -76,39 +79,50 @@ public class StreamChatPipeline {
      * 执行流式对话管道
      */
     public void execute(StreamChatContext ctx) {
-        loadMemory(ctx);
-        rewriteQuery(ctx);
-        resolveIntents(ctx);
+        loadMemory(ctx);  //加载会话记忆
+        rewriteQuery(ctx);  //查询改写与子问题拆分
+        loadLongTermMemory(ctx);  //加载长期记忆
+        resolveIntents(ctx);  //意图识别
 
-        if (handleGuidance(ctx)) {
+        if (handleGuidance(ctx)) {  //歧义引导
             return;
         }
-        if (handleSystemOnly(ctx)) {
-            return;
-        }
-
-        RetrievalContext retrievalCtx = retrieve(ctx);
-        if (handleEmptyRetrieval(ctx, retrievalCtx)) {
+        if (handleSystemOnly(ctx)) {  //系统直答
             return;
         }
 
-        streamRagResponse(ctx, retrievalCtx);
+        RetrievalContext retrievalCtx = retrieve(ctx);  //多通道检索
+        if (handleEmptyRetrieval(ctx, retrievalCtx)) {  //空结果兜底
+            return;
+        }
+
+        streamRagResponse(ctx, retrievalCtx);  //Prompt 组装与流式生成
     }
-
     // ==================== 流水线阶段 ====================
 
     private void loadMemory(StreamChatContext ctx) {
-        List<ChatMessage> history = memoryService.loadAndAppend(
+        ConversationMemoryContext memoryContext = memoryService.loadContextAndAppend(
                 ctx.getConversationId(),
                 ctx.getUserId(),
                 ChatMessage.user(ctx.getQuestion())
         );
-        ctx.setHistory(history);
+        ctx.setConversationSummary(memoryContext.summary());
+        ctx.setHistory(memoryContext.recentHistory());
     }
 
     private void rewriteQuery(StreamChatContext ctx) {
         RewriteResult rewriteResult = queryRewriteService.rewriteWithSplit(ctx.getQuestion(), ctx.getHistory());
         ctx.setRewriteResult(rewriteResult);
+    }
+
+    private void loadLongTermMemory(StreamChatContext ctx) {
+        try {
+            String query = ctx.getRewriteResult() == null ? ctx.getQuestion() : ctx.getRewriteResult().rewrittenQuestion();
+            ctx.setLongTermMemory(longTermMemoryService.recall(ctx.getUserId(), query));
+        } catch (Exception e) {
+            log.warn("加载长期记忆失败 - conversationId: {}, userId: {}", ctx.getConversationId(), ctx.getUserId(), e);
+            ctx.setLongTermMemory(null);
+        }
     }
 
     private void resolveIntents(StreamChatContext ctx) {
@@ -175,6 +189,8 @@ public class StreamChatPipeline {
                 ctx.getRewriteResult(),
                 retrievalCtx,
                 mergedGroup,
+                ctx.getLongTermMemory(),
+                ctx.getConversationSummary(),
                 ctx.getHistory(),
                 ctx.isDeepThinking(),
                 ctx.getCallback()
@@ -206,10 +222,14 @@ public class StreamChatPipeline {
     }
 
     private StreamCancellationHandle streamLLMResponse(RewriteResult rewriteResult, RetrievalContext ctx,
-                                                       IntentGroup intentGroup, List<ChatMessage> history,
+                                                       IntentGroup intentGroup, String longTermMemory,
+                                                       String conversationSummary,
+                                                       List<ChatMessage> history,
                                                        boolean deepThinking, StreamCallback callback) {
         PromptContext promptContext = PromptContext.builder()
                 .question(rewriteResult.rewrittenQuestion())
+                .longTermMemory(longTermMemory)
+                .conversationSummary(conversationSummary)
                 .mcpContext(ctx.getMcpContext())
                 .kbContext(ctx.getKbContext())
                 .mcpIntents(intentGroup.mcpIntents())

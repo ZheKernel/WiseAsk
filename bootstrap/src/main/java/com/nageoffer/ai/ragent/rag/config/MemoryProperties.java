@@ -42,7 +42,7 @@ public class MemoryProperties {
      */
     @Min(1)
     @Max(100)
-    private Integer historyKeepTurns = 8;
+    private Integer historyKeepTurns = 4;
 
     /**
      * 是否启用对话记忆压缩
@@ -52,7 +52,7 @@ public class MemoryProperties {
     /**
      * 开始摘要的轮数阈值
      */
-    private Integer summaryStartTurns = 9;
+    private Integer summaryStartTurns = 8;
 
     /**
      * 摘要最大字数
@@ -60,6 +60,51 @@ public class MemoryProperties {
     @Min(200)
     @Max(1000)
     private Integer summaryMaxChars = 200;
+
+    /**
+     * 增量摘要至少累积的新增用户轮数，避免每轮都改写摘要破坏 KV 缓存命中
+     */
+    @Min(1)
+    @Max(100)
+    private Integer summaryUpdateMinTurns = 6;
+
+    /**
+     * 待压缩内容达到该 Token 量时提前更新摘要，用于兜住超长上下文
+     */
+    @Min(500)
+    @Max(200000)
+    private Integer summaryTriggerInputTokens = 12000;
+
+    /**
+     * 是否启用长期记忆召回
+     */
+    private Boolean longTermEnabled = true;
+
+    /**
+     * 是否启用长期记忆异步抽取
+     */
+    private Boolean longTermExtractionEnabled = true;
+
+    /**
+     * 每次召回的长期记忆条数上限
+     */
+    @Min(1)
+    @Max(20)
+    private Integer longTermRecallLimit = 5;
+
+    /**
+     * 抽取长期记忆时回看最近消息条数
+     */
+    @Min(2)
+    @Max(20)
+    private Integer longTermExtractionRecentMessages = 6;
+
+    /**
+     * 单条长期记忆最大长度
+     */
+    @Min(50)
+    @Max(1000)
+    private Integer longTermMaxContentLength = 300;
 
     /**
      * 会话标题最大长度（用于提示词约束）

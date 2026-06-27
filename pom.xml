@@ -34,7 +34,9 @@
         <module>bootstrap</module>
         <module>framework</module>
         <module>infra-ai</module>
+        <module>mcp-auth</module>
         <module>mcp-server</module>
+        <module>mcp-order-server</module>
     </modules>
 
     <dependencyManagement>

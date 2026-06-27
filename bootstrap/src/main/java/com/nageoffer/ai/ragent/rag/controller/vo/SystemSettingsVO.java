@@ -148,6 +148,13 @@ public class SystemSettingsVO {
         private Boolean summaryEnabled;
         private Integer summaryStartTurns;
         private Integer summaryMaxChars;
+        private Integer summaryUpdateMinTurns;
+        private Integer summaryTriggerInputTokens;
+        private Boolean longTermEnabled;
+        private Boolean longTermExtractionEnabled;
+        private Integer longTermRecallLimit;
+        private Integer longTermExtractionRecentMessages;
+        private Integer longTermMaxContentLength;
         private Integer titleMaxLength;
     }
 

@@ -48,6 +48,16 @@ public class KnowledgeBaseVO {
     private String collectionName;
 
     /**
+     * 知识库所有者用户 ID
+     */
+    private String ownerUserId;
+
+    /**
+     * 知识库作用域：GLOBAL/PERSONAL
+     */
+    private String scope;
+
+    /**
      * 文档数量
      */
     private Long documentCount;

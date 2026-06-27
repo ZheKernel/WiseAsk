@@ -141,11 +141,16 @@ public class IntentDirectedSearchChannel implements SearchChannel {
      * 提取 KB 意图
      */
     private List<NodeScore> extractKbIntents(SearchContext context) {
+        if (CollUtil.isEmpty(context.getAuthorizedCollections())) {
+            return List.of();
+        }
         double minScore = properties.getChannels().getIntentDirected().getMinIntentScore();
         List<NodeScore> allScores = context.getIntents().stream()
                 .flatMap(si -> si.nodeScores().stream())
                 .toList();
-        return NodeScoreFilters.kb(allScores, minScore);
+        return NodeScoreFilters.kb(allScores, minScore).stream()
+                .filter(ns -> context.isCollectionAuthorized(ns.getNode().getCollectionName()))
+                .toList();
     }
 
     /**
