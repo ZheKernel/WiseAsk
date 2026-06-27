@@ -61,8 +61,10 @@ Startup-time MCP initialization and tool discovery use a short-lived
 `system` identity. The `system` role may initialize and list tools but may not
 execute order query tools.
 
-The shared secret is provided through `RAGENT_MCP_SHARED_SECRET`; it is never
-stored in source control.
+For localhost development, both processes use the same documented development
+fallback key and the order MCP client is enabled by default. Production must
+override the fallback through `RAGENT_MCP_SHARED_SECRET`; production secrets
+must never be stored in source control.
 
 ## Tools
 

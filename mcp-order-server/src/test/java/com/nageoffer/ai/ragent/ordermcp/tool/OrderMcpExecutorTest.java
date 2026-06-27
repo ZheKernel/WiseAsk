@@ -31,6 +31,8 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.same;
@@ -39,6 +41,28 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class OrderMcpExecutorTest {
+
+    @Test
+    void shouldExposeAllOrderTools() {
+        OrderMcpExecutor executor = new OrderMcpExecutor(
+                mock(OrderQueryService.class),
+                new ObjectMapper().findAndRegisterModules()
+        );
+
+        Set<String> toolNames = List.of(
+                        executor.orderListMineToolSpecification(),
+                        executor.orderDetailToolSpecification(),
+                        executor.orderAdminSearchToolSpecification()
+                ).stream()
+                .map(specification -> specification.tool().name())
+                .collect(Collectors.toSet());
+
+        Assertions.assertEquals(Set.of(
+                OrderMcpExecutor.TOOL_LIST_MINE,
+                OrderMcpExecutor.TOOL_DETAIL,
+                OrderMcpExecutor.TOOL_ADMIN_SEARCH
+        ), toolNames);
+    }
 
     @Test
     void shouldIgnoreModelSuppliedUserIdForMineTool() {

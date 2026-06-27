@@ -56,13 +56,14 @@ public class DefaultMcpToolRegistry implements McpToolRegistry {
     @PostConstruct
     public void init() {
         if (CollUtil.isEmpty(autoDiscoveredExecutors)) {
-            log.info("MCP 工具注册跳过, 未发现任何工具执行器");
+            log.info("未发现本地 MCP 工具执行器，等待远程 MCP 工具注册");
         }
 
         for (McpToolExecutor executor : autoDiscoveredExecutors) {
             register(executor);
         }
-        log.info("MCP 工具自动注册完成, 共注册 {} 个工具", autoDiscoveredExecutors.size());
+        log.info("MCP 本地工具注册完成, 本地发现 {} 个, 当前注册表共 {} 个",
+                autoDiscoveredExecutors.size(), executorMap.size());
     }
 
     @Override

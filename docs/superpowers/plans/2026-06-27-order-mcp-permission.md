@@ -36,3 +36,10 @@
 - [x] Review `git diff --stat` and the full diff.
 - [x] Confirm unrelated user changes remain untouched.
 - [x] Commit the verified checkpoint.
+
+## Task 6: Local Tool Discovery Fix
+
+- [x] Enable the localhost order MCP client by default.
+- [x] Align the Ragent and order-service localhost signing keys.
+- [x] Distinguish local bean discovery logs from completed remote registration.
+- [x] Verify that the order service exposes all three tools and Ragent enables remote discovery.

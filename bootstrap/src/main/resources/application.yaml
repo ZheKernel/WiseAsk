@@ -96,11 +96,11 @@ rag:
         url: http://localhost:9099
       - name: order
         url: http://localhost:9100
-        enabled: ${ORDER_MCP_ENABLED:false}
+        enabled: ${ORDER_MCP_ENABLED:true}
         auth-enabled: true
         audience: ${ORDER_MCP_AUDIENCE:order-mcp}
     identity:
-      secret: ${RAGENT_MCP_SHARED_SECRET:}
+      secret: ${RAGENT_MCP_SHARED_SECRET:ragent-local-order-mcp-signing-key-32-bytes}
       issuer: ${RAGENT_MCP_ISSUER:ragent}
       ttl-seconds: 300
 

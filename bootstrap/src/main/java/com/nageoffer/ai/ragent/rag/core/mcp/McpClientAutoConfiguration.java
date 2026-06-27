@@ -67,6 +67,7 @@ public class McpClientAutoConfiguration {
             }
             registerRemoteTools(server);
         }
+        log.info("MCP 远程工具注册流程完成, 当前注册表共 {} 个工具", toolRegistry.size());
     }
 
     private void registerRemoteTools(McpClientProperties.ServerConfig server) {
