@@ -3,7 +3,7 @@
 ## 简历表述
 
 - 设计结构化长期记忆与四层 Prompt 上下文编排机制，基于 LLM 异步抽取 `PREFERENCE/PROJECT/CONSTRAINT/FACT` 记忆并按用户维度合并召回，结合会话摘要检查点和稳定前缀编排提升 KV Cache 复用率，兼顾跨会话上下文连续性与 Token 成本。
-- 构建 RAG 资源权限与 MCP 双层鉴权体系，通过 `GLOBAL/PERSONAL` 知识库作用域、检索前 Collection 裁剪和 HMAC-SHA256 短期 JWT 透传身份，在独立订单 MCP 中实现管理员全量查询与普通用户行级数据隔离。
+- 构建 RAG 资源权限与 MCP 双层鉴权体系，以 `GLOBAL/PERSONAL` 知识库、短期 JWT 身份透传和 SQL 行级过滤实现管理员与普通用户隔离，并构造 100 用户、10 万订单的电商数据集，搭建支持扩展至 1 万请求的 Chat 决策链路评测，量化意图准确率、P95/P99 延迟并设置零越权门禁。
 
 ## Harness Engineering 定位
 
