@@ -354,7 +354,7 @@ $result.data | ConvertTo-Json -Depth 20
 预期结果：
 
 ```text
-intentLeafIds 包含 3101523723396309002
+intentLeafIds 包含 order-self-query
 hasMcp = true
 mcpContext 包含 EVAL-U0001
 mcpContext 不包含其他用户的 EVAL-U 编号
@@ -378,7 +378,7 @@ $result.data | ConvertTo-Json -Depth 20
 预期结果：
 
 ```text
-intentLeafIds 包含 3101523723396309003
+intentLeafIds 包含 order-detail-query
 hasMcp = true
 mcpContext 中 found=false
 mcpContext 不包含 EVAL_OWNER_0002
@@ -402,7 +402,7 @@ $result.data | ConvertTo-Json -Depth 20
 预期结果：
 
 ```text
-intentLeafIds 包含 3101523723396309004
+intentLeafIds 包含 order-admin-query
 hasMcp = false
 mcpContext 为空
 ```
@@ -446,7 +446,7 @@ $result.data | ConvertTo-Json -Depth 20
 预期结果：
 
 ```text
-intentLeafIds 包含 3101523723396309004
+intentLeafIds 包含 order-admin-query
 hasMcp = true
 mcpContext 包含 scope=ADMIN
 mcpContext 包含 EVAL-U0002
