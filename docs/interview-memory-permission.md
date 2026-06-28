@@ -2,7 +2,7 @@
 
 ## 简历表述
 
-- 设计结构化长期记忆与四层 Prompt 上下文编排机制，基于 LLM 异步抽取 `PREFERENCE/PROJECT/CONSTRAINT/FACT` 记忆并按用户维度合并召回，结合会话摘要检查点控制跨会话上下文连续性与 Token 成本。
+- 设计结构化长期记忆与四层 Prompt 上下文编排机制，基于 LLM 异步抽取 `PREFERENCE/PROJECT/CONSTRAINT/FACT` 记忆并按用户维度合并召回，结合会话摘要检查点和稳定前缀编排提升 KV Cache 复用率，兼顾跨会话上下文连续性与 Token 成本。
 - 构建 RAG 资源权限与 MCP 双层鉴权体系，通过 `GLOBAL/PERSONAL` 知识库作用域、检索前 Collection 裁剪和 HMAC-SHA256 短期 JWT 透传身份，在独立订单 MCP 中实现管理员全量查询与普通用户行级数据隔离。
 
 ## Harness Engineering 定位

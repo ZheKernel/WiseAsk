@@ -44,3 +44,6 @@ dist/
 .vite/
 .env.local
 .codegraph/
+evaluation/order-mcp/reports/
+__pycache__/
+*.py[cod]
