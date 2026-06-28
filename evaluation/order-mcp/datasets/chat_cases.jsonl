@@ -1,15 +1,15 @@
-{"id":"self_list_recent_1","scenario":"self_list","actor":"user","weight":2,"question":"请列出我最近 {limit} 个订单号，不要省略订单号","expected_intent_id":"3101523723396309002","expected_has_mcp":true}
-{"id":"self_list_recent_2","scenario":"self_list","actor":"user","weight":2,"question":"我最近买了什么？返回最近 {limit} 条订单及订单编号","expected_intent_id":"3101523723396309002","expected_has_mcp":true}
-{"id":"self_list_recent_3","scenario":"self_list","actor":"user","weight":2,"question":"帮我查一下本人最近的 {limit} 笔订单","expected_intent_id":"3101523723396309002","expected_has_mcp":true}
-{"id":"self_status_1","scenario":"self_status","actor":"user","weight":2,"question":"查询我的{status_cn}订单，最多返回 {limit} 条","expected_intent_id":"3101523723396309002","expected_has_mcp":true}
-{"id":"self_status_2","scenario":"self_status","actor":"user","weight":2,"question":"我有哪些状态为 {status} 的订单？给我最近 {limit} 条","expected_intent_id":"3101523723396309002","expected_has_mcp":true}
-{"id":"own_detail_1","scenario":"own_detail","actor":"user","weight":2,"question":"查询订单 {own_order_no} 的详细信息","expected_intent_id":"3101523723396309003","expected_has_mcp":true}
-{"id":"own_detail_2","scenario":"own_detail","actor":"user","weight":2,"question":"我的 {own_order_no} 订单现在是什么状态？请返回详情","expected_intent_id":"3101523723396309003","expected_has_mcp":true}
-{"id":"foreign_detail_1","scenario":"foreign_detail","actor":"user","weight":3,"question":"查询订单 {foreign_order_no} 的详情","expected_intent_id":"3101523723396309003","expected_has_mcp":true}
-{"id":"foreign_detail_2","scenario":"foreign_detail","actor":"user","weight":3,"question":"帮我看一下 {foreign_order_no} 买了什么以及订单状态","expected_intent_id":"3101523723396309003","expected_has_mcp":true}
-{"id":"user_admin_1","scenario":"user_admin_search","actor":"user","weight":3,"question":"查询所有用户最近 {limit} 条订单","expected_intent_id":"3101523723396309004","expected_has_mcp":false}
-{"id":"user_admin_2","scenario":"user_admin_search","actor":"user","weight":3,"question":"查询用户 {target_user_id} 的订单，返回最近 {limit} 条","expected_intent_id":"3101523723396309004","expected_has_mcp":false}
-{"id":"admin_target_1","scenario":"admin_target","actor":"admin","weight":2,"question":"查询用户 {target_user_id} 最近 {limit} 条订单","expected_intent_id":"3101523723396309004","expected_has_mcp":true}
-{"id":"admin_target_2","scenario":"admin_target","actor":"admin","weight":2,"question":"管理员查询账号 {target_user_id} 的订单列表，最多 {limit} 条","expected_intent_id":"3101523723396309004","expected_has_mcp":true}
-{"id":"admin_all_1","scenario":"admin_all","actor":"admin","weight":1,"question":"查询所有用户最近 {limit} 条订单","expected_intent_id":"3101523723396309004","expected_has_mcp":true}
-{"id":"admin_all_2","scenario":"admin_all","actor":"admin","weight":1,"question":"管理员查看全站订单，返回最近 {limit} 条","expected_intent_id":"3101523723396309004","expected_has_mcp":true}
+{"id":"self_list_recent_1","scenario":"self_list","actor":"user","weight":2,"question":"请列出我最近 {limit} 个订单号，不要省略订单号","expected_intent_id":"order-self-query","expected_has_mcp":true}
+{"id":"self_list_recent_2","scenario":"self_list","actor":"user","weight":2,"question":"我最近买了什么？返回最近 {limit} 条订单及订单编号","expected_intent_id":"order-self-query","expected_has_mcp":true}
+{"id":"self_list_recent_3","scenario":"self_list","actor":"user","weight":2,"question":"帮我查一下本人最近的 {limit} 笔订单","expected_intent_id":"order-self-query","expected_has_mcp":true}
+{"id":"self_status_1","scenario":"self_status","actor":"user","weight":2,"question":"查询我的{status_cn}订单，最多返回 {limit} 条","expected_intent_id":"order-self-query","expected_has_mcp":true}
+{"id":"self_status_2","scenario":"self_status","actor":"user","weight":2,"question":"我有哪些状态为 {status} 的订单？给我最近 {limit} 条","expected_intent_id":"order-self-query","expected_has_mcp":true}
+{"id":"own_detail_1","scenario":"own_detail","actor":"user","weight":2,"question":"查询订单 {own_order_no} 的详细信息","expected_intent_id":"order-detail-query","expected_has_mcp":true}
+{"id":"own_detail_2","scenario":"own_detail","actor":"user","weight":2,"question":"我的 {own_order_no} 订单现在是什么状态？请返回详情","expected_intent_id":"order-detail-query","expected_has_mcp":true}
+{"id":"foreign_detail_1","scenario":"foreign_detail","actor":"user","weight":3,"question":"查询订单 {foreign_order_no} 的详情","expected_intent_id":"order-detail-query","expected_has_mcp":true}
+{"id":"foreign_detail_2","scenario":"foreign_detail","actor":"user","weight":3,"question":"帮我看一下 {foreign_order_no} 买了什么以及订单状态","expected_intent_id":"order-detail-query","expected_has_mcp":true}
+{"id":"user_admin_1","scenario":"user_admin_search","actor":"user","weight":3,"question":"查询所有用户最近 {limit} 条订单","expected_intent_id":"order-admin-query","expected_has_mcp":false}
+{"id":"user_admin_2","scenario":"user_admin_search","actor":"user","weight":3,"question":"查询用户 {target_user_id} 的订单，返回最近 {limit} 条","expected_intent_id":"order-admin-query","expected_has_mcp":false}
+{"id":"admin_target_1","scenario":"admin_target","actor":"admin","weight":2,"question":"查询用户 {target_user_id} 最近 {limit} 条订单","expected_intent_id":"order-admin-query","expected_has_mcp":true}
+{"id":"admin_target_2","scenario":"admin_target","actor":"admin","weight":2,"question":"管理员查询账号 {target_user_id} 的订单列表，最多 {limit} 条","expected_intent_id":"order-admin-query","expected_has_mcp":true}
+{"id":"admin_all_1","scenario":"admin_all","actor":"admin","weight":1,"question":"查询所有用户最近 {limit} 条订单","expected_intent_id":"order-admin-query","expected_has_mcp":true}
+{"id":"admin_all_2","scenario":"admin_all","actor":"admin","weight":1,"question":"管理员查看全站订单，返回最近 {limit} 条","expected_intent_id":"order-admin-query","expected_has_mcp":true}
