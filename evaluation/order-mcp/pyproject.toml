@@ -1,0 +1,9 @@
+[project]
+name = "ragent-order-mcp-evaluation"
+version = "0.1.0"
+description = "End-to-end evaluation for Ragent Chat intent routing and Order MCP permissions"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.unittest]
+start-directory = "tests"

@@ -1,22 +1,24 @@
 # Order MCP Quick Start
 
-## 1. Create the Separate Database
+## 1. Initialize the Order Table
+
+The default local configuration uses the existing `ragent` database at
+`localhost:5432` with username and password `postgres`.
+
+Initialize the order table and optional sample rows:
 
 ```powershell
-createdb -h 127.0.0.1 -p 5432 -U postgres -W ragent_order
-```
-
-Initialize the order table and sample rows:
-
-```powershell
-psql -h 127.0.0.1 -p 5432 -U postgres -W -d ragent_order `
+psql -h localhost -p 5432 -U postgres -W -d ragent `
   -v ON_ERROR_STOP=1 -1 `
   -f .\resources\database\order_service_schema.sql
 
-psql -h 127.0.0.1 -p 5432 -U postgres -W -d ragent_order `
+psql -h localhost -p 5432 -U postgres -W -d ragent `
   -v ON_ERROR_STOP=1 -1 `
   -f .\resources\database\order_service_sample_data.sql
 ```
+
+To use a separate database, create it yourself and set `ORDER_DB_URL` when
+starting the Order MCP service.
 
 The sample orders use these Ragent user IDs:
 
@@ -54,9 +56,9 @@ Do not store the real value in `application.yml` or commit it.
 
 ```powershell
 $env:RAGENT_MCP_SHARED_SECRET="<same-secret>"
-$env:ORDER_DB_URL="jdbc:postgresql://127.0.0.1:5432/ragent_order"
+$env:ORDER_DB_URL="jdbc:postgresql://localhost:5432/ragent"
 $env:ORDER_DB_USERNAME="postgres"
-$env:ORDER_DB_PASSWORD="<your-postgres-password>"
+$env:ORDER_DB_PASSWORD="postgres"
 
 .\mvnw.cmd -pl mcp-order-server -am spring-boot:run
 ```
@@ -78,8 +80,8 @@ $env:ORDER_MCP_ENABLED="true"
 .\mvnw.cmd -pl bootstrap -am spring-boot:run
 ```
 
-`ORDER_MCP_ENABLED` defaults to `false`, so an existing Ragent deployment is
-not forced to connect to the optional order service.
+`ORDER_MCP_ENABLED` currently defaults to `true`. Set it to `false` explicitly
+when Ragent should start without the Order MCP service.
 
 Ragent initializes the order MCP server using a short-lived `system` token.
 Actual tool calls use a new token containing the current Ragent user ID and
@@ -106,6 +108,20 @@ Log in as `admin`:
 ```
 
 The administrator can use `order_admin_search` and see rows across users.
+
+## 7. Run the Chat Evaluation
+
+The end-to-end evaluator enters through Ragent's synchronous `/rag/eval`
+endpoint and covers intent recognition, tool selection, identity propagation,
+Order MCP authorization, and row-level filtering:
+
+```powershell
+cd .\evaluation\order-mcp
+python run_evaluation.py --config config.example.json --dry-run
+```
+
+See `evaluation/order-mcp/README.md` for synthetic data import, smoke tests,
+10000-request stress runs, metrics, and cleanup.
 
 ## Production Notes
 

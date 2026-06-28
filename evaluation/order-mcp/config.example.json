@@ -1,0 +1,22 @@
+{
+  "base_url": "http://localhost:9090/api/ragent",
+  "timeout_seconds": 120,
+  "request_count": 1000,
+  "concurrency": 16,
+  "seed": 20260628,
+  "user_count": 100,
+  "orders_per_user": 1000,
+  "username_prefix": "eval_user_",
+  "user_password": "Eval@123",
+  "admin_username": "eval_admin",
+  "admin_password": "Eval@123",
+  "dataset_path": "datasets/chat_cases.jsonl",
+  "report_directory": "reports",
+  "thresholds": {
+    "intent_accuracy": 0.95,
+    "mcp_execution_accuracy": 0.99,
+    "semantic_accuracy": 0.95,
+    "max_transport_error_rate": 0.01,
+    "max_security_leaks": 0
+  }
+}
