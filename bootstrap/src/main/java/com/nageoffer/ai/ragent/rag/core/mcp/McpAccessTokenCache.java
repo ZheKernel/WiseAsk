@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.rag.core.mcp;
 
 import com.nageoffer.ai.ragent.rag.config.McpAuthorizationProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -27,21 +28,42 @@ import java.util.function.Supplier;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class McpAccessTokenCache {
 
     private final McpAuthorizationProperties properties;
     private final ConcurrentHashMap<String, McpAccessToken> tokens = new ConcurrentHashMap<>();
 
     public McpAccessToken getOrLoad(String cacheKey, Supplier<McpAccessToken> loader) {
+        return getOrLoad(cacheKey, "unspecified", loader);
+    }
+
+    public McpAccessToken getOrLoad(
+            String cacheKey,
+            String cacheContext,
+            Supplier<McpAccessToken> loader) {
         McpAccessToken current = tokens.get(cacheKey);
         if (usable(current)) {
+            log.info("[MCP-AUTH][TOKEN_CACHE_HIT] credential reused, context={}, expiresAt={}",
+                    cacheContext, current.expiresAt());
             return current;
         }
-        return tokens.compute(cacheKey, (key, existing) -> usable(existing) ? existing : loader.get());
+        return tokens.compute(cacheKey, (key, existing) -> {
+            if (usable(existing)) {
+                log.info("[MCP-AUTH][TOKEN_CACHE_HIT] credential reused after concurrent refresh, "
+                                + "context={}, expiresAt={}",
+                        cacheContext, existing.expiresAt());
+                return existing;
+            }
+            log.info("[MCP-AUTH][TOKEN_CACHE_MISS] requesting credential from Auth Server, context={}",
+                    cacheContext);
+            return loader.get();
+        });
     }
 
     public void evict(String cacheKey) {
         tokens.remove(cacheKey);
+        log.info("[MCP-AUTH][TOKEN_CACHE_EVICT] cached credential removed");
     }
 
     private boolean usable(McpAccessToken token) {

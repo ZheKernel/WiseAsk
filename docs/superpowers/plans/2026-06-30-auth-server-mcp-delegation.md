@@ -674,3 +674,15 @@ Document OAuth MCP deployment and verification
 - [x] 移除三个业务模块对 `mcp-auth` 的 Maven 依赖。
 - [x] 运行 Auth Server、Ragent MCP Client 和 Order MCP 聚焦测试。
 - [x] 检查 Reactor、README、项目地图和启动文档不再引用已删除模块。
+
+---
+
+## Task 11：完善鉴权链路控制台日志
+
+- [x] 定义 `[MCP-AUTH]` 阶段标签、安全字段和敏感字段禁记规则。
+- [x] Ragent 记录 Client Assertion、Token Cache、Token Exchange 和 MCP 调用阶段。
+- [x] Auth Server 记录客户端断言验证、用户会话验证、Scope 降权和 Token 签发阶段。
+- [x] Order MCP 记录 Access Token 验证、Scope/角色授权和工具结果阶段。
+- [x] 使用 `assertionJti` 与 `tokenJti` 串联跨进程日志。
+- [x] 更新快速启动文档中的预期日志示例。
+- [x] 运行三端聚焦测试并检查日志中不包含任何令牌正文。

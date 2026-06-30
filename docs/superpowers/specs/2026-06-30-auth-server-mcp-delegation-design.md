@@ -536,6 +536,28 @@ Ragent 能读取用户的 Sa-Token 并发起 Token Exchange，因此仍属于高
 两个独立问题，但属于生产部署前必须处理的安全风险。本计划不能因为引入 Auth Server
 而错误宣称用户登录链路已经达到生产安全要求。
 
+## 鉴权链路日志
+
+三个进程使用统一的 `[MCP-AUTH]` 前缀和阶段标签输出控制台日志：
+
+```text
+Ragent [CLIENT_ASSERTION] -> Auth Server [CLIENT_VERIFIED]
+Auth Server [SUBJECT_VERIFIED] -> [SCOPE_GRANTED] -> [TOKEN_ISSUED]
+Ragent [TOKEN_RECEIVED] -> [MCP_CALL]
+Order MCP [TOKEN_VERIFIED] -> [AUTHZ_ALLOW|AUTHZ_DENY] -> [TOOL_RESULT]
+```
+
+关联规则：
+
+- `assertionJti` 只用于关联 Ragent 生成的 `private_key_jwt` 与 Auth Server 的客户端认证。
+- `tokenJti` 用于关联 Auth Server 签发、Ragent 携带与 Order MCP 验证的同一个
+  Access Token。
+- 允许记录 Client ID、用户 ID、角色、Audience、Scope、Key ID、过期时间和耗时。
+- 禁止记录 Client Assertion、Sa-Token、Access Token、私钥、密码和 Authorization
+  Header。
+- 缓存日志必须明确区分 `HIT`、`MISS` 和 `EVICT`，避免把未访问 Auth Server 的缓存
+  命中误判为一次新的 Token Exchange。
+
 ## 测试矩阵
 
 ### Auth Server

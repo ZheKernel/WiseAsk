@@ -21,6 +21,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -34,6 +35,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Component
+@Slf4j
 public class OrderMcpIdentityBridgeFilter extends OncePerRequestFilter {
 
     @Override
@@ -53,9 +55,16 @@ public class OrderMcpIdentityBridgeFilter extends OncePerRequestFilter {
                     jwtAuthentication.getToken().getClaimAsString("username"),
                     jwtAuthentication.getToken().getClaimAsString("role"),
                     scopes(jwtAuthentication),
-                    clientId(jwtAuthentication)
+                    clientId(jwtAuthentication),
+                    jwtAuthentication.getToken().getId()
             );
             request.setAttribute(OrderMcpIdentityContext.REQUEST_ATTRIBUTE, identity);
+            log.info("[MCP-AUTH][TOKEN_VERIFIED] Order MCP accepted Auth Server access token, "
+                            + "tokenJti={}, clientId={}, userId={}, role={}, scopes={}, issuer={}, "
+                            + "audience={}, path={}",
+                    identity.tokenId(), identity.clientId(), identity.userId(), identity.role(),
+                    identity.scopes(), jwtAuthentication.getToken().getIssuer(),
+                    jwtAuthentication.getToken().getAudience(), request.getRequestURI());
         }
         filterChain.doFilter(request, response);
     }

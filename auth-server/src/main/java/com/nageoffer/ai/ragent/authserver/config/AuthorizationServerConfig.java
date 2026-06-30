@@ -24,6 +24,7 @@ import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -57,6 +58,7 @@ import java.util.Set;
 
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 public class AuthorizationServerConfig {
 
     private final AuthServerProperties properties;
@@ -135,22 +137,42 @@ public class AuthorizationServerConfig {
                         return jwt -> {
                             OAuth2TokenValidatorResult result = defaultValidator.validate(jwt);
                             if (result.hasErrors()) {
+                                log.warn("[MCP-AUTH][CLIENT_REJECTED] private_key_jwt validation "
+                                                + "failed, clientId={}, assertionJti={}, "
+                                                + "reason=signature_or_standard_claim",
+                                        registeredClient.getClientId(), jwt.getId());
                                 return result;
                             }
                             if (jwt.getId() == null
                                     || jwt.getId().isBlank()
-                                    || jwt.getExpiresAt() == null
-                                    || !replayStore.markIfAbsent(
-                                            registeredClient.getClientId(),
-                                            jwt.getId(),
-                                            jwt.getExpiresAt()
-                                    )) {
+                                    || jwt.getExpiresAt() == null) {
+                                log.warn("[MCP-AUTH][CLIENT_REJECTED] private_key_jwt missing "
+                                                + "required replay-protection claims, clientId={}, "
+                                                + "assertionJti={}",
+                                        registeredClient.getClientId(), jwt.getId());
                                 return OAuth2TokenValidatorResult.failure(new OAuth2Error(
                                         OAuth2ErrorCodes.INVALID_TOKEN,
                                         "Client assertion is missing a valid unique jti",
                                         null
                                 ));
                             }
+                            if (!replayStore.markIfAbsent(
+                                    registeredClient.getClientId(),
+                                    jwt.getId(),
+                                    jwt.getExpiresAt())) {
+                                log.warn("[MCP-AUTH][CLIENT_REJECTED] replayed private_key_jwt "
+                                                + "rejected, clientId={}, assertionJti={}",
+                                        registeredClient.getClientId(), jwt.getId());
+                                return OAuth2TokenValidatorResult.failure(new OAuth2Error(
+                                        OAuth2ErrorCodes.INVALID_TOKEN,
+                                        "Client assertion is missing a valid unique jti",
+                                        null
+                                ));
+                            }
+                            log.info("[MCP-AUTH][CLIENT_VERIFIED] private_key_jwt signature and "
+                                            + "replay checks passed, clientId={}, assertionJti={}, "
+                                            + "expiresAt={}",
+                                    registeredClient.getClientId(), jwt.getId(), jwt.getExpiresAt());
                             return OAuth2TokenValidatorResult.success();
                         };
                     });
@@ -180,12 +202,19 @@ public class AuthorizationServerConfig {
                                             context.getAuthentication();
                                     Set<String> scopes = authentication.getScopes();
                                     if (!Set.of(McpScopes.DISCOVER).equals(scopes)) {
+                                        log.warn("[MCP-AUTH][SCOPE_REJECTED] client_credentials "
+                                                        + "requested unsupported scopes, "
+                                                        + "clientId={}, requestedScopes={}",
+                                                authentication.getName(), scopes);
                                         throw new OAuth2AuthenticationException(new OAuth2Error(
                                                 OAuth2ErrorCodes.INVALID_SCOPE,
                                                 "Client credentials can only request mcp:discover",
                                                 null
                                         ));
                                     }
+                                    log.info("[MCP-AUTH][SCOPE_GRANTED] service discovery scope "
+                                                    + "accepted, clientId={}, grantedScopes={}",
+                                            authentication.getName(), scopes);
                                 })
                 ));
     }

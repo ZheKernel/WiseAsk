@@ -48,6 +48,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Slf4j
@@ -72,6 +73,9 @@ public class McpTokenExchangeAuthenticationProvider implements AuthenticationPro
                 (OAuth2TokenExchangeAuthenticationToken) authentication;
         OAuth2ClientAuthenticationToken clientPrincipal = authenticatedClient(tokenExchange);
         RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
+        log.info("[MCP-AUTH][TOKEN_EXCHANGE] delegated credential request accepted for "
+                        + "evaluation, clientId={}, audiences={}, requestedScopes={}",
+                registeredClient.getClientId(), tokenExchange.getAudiences(), tokenExchange.getScopes());
 
         if (!registeredClient.getAuthorizationGrantTypes().contains(AuthorizationGrantType.TOKEN_EXCHANGE)) {
             throw error(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT, "Client cannot use token exchange");
@@ -79,9 +83,20 @@ public class McpTokenExchangeAuthenticationProvider implements AuthenticationPro
         validateTokenTypes(tokenExchange);
         validateAudience(tokenExchange);
 
-        AuthUser user = subjectVerifier.verify(tokenExchange.getSubjectToken())
-                .orElseThrow(() -> error(OAuth2ErrorCodes.INVALID_GRANT, "Invalid subject token"));
+        Optional<AuthUser> verifiedUser = subjectVerifier.verify(tokenExchange.getSubjectToken());
+        if (verifiedUser.isEmpty()) {
+            log.warn("[MCP-AUTH][SUBJECT_REJECTED] token exchange subject credential rejected, "
+                            + "clientId={}, audiences={}, requestedScopes={}",
+                    registeredClient.getClientId(), tokenExchange.getAudiences(),
+                    tokenExchange.getScopes());
+            throw error(OAuth2ErrorCodes.INVALID_GRANT, "Invalid subject token");
+        }
+        AuthUser user = verifiedUser.get();
         Set<String> authorizedScopes = authorizeScopes(tokenExchange, registeredClient, user);
+        log.info("[MCP-AUTH][SCOPE_GRANTED] user scopes evaluated, clientId={}, userId={}, "
+                        + "role={}, requestedScopes={}, grantedScopes={}",
+                registeredClient.getClientId(), user.userId(), user.role(),
+                tokenExchange.getScopes(), authorizedScopes);
         Authentication userAuthentication = UsernamePasswordAuthenticationToken.authenticated(
                 new McpUserPrincipal(user),
                 "",
@@ -130,9 +145,10 @@ public class McpTokenExchangeAuthenticationProvider implements AuthenticationPro
         authorizationService.save(authorizationBuilder.build());
 
         String tokenId = tokenClaims == null ? null : tokenClaims.getClaimAsString("jti");
-        log.info("Issued MCP token, clientId={}, subject={}, audience={}, scopes={}, jti={}",
-                registeredClient.getClientId(), user.userId(), properties.getOrderAudience(),
-                authorizedScopes, tokenId);
+        log.info("[MCP-AUTH][TOKEN_ISSUED] delegated MCP access token issued, clientId={}, "
+                        + "subject={}, role={}, audience={}, scopes={}, tokenJti={}, expiresAt={}",
+                registeredClient.getClientId(), user.userId(), user.role(),
+                properties.getOrderAudience(), authorizedScopes, tokenId, accessToken.getExpiresAt());
         return new OAuth2AccessTokenAuthenticationToken(
                 registeredClient,
                 clientPrincipal,
@@ -176,6 +192,9 @@ public class McpTokenExchangeAuthenticationProvider implements AuthenticationPro
     private void validateAudience(OAuth2TokenExchangeAuthenticationToken tokenExchange) {
         if (tokenExchange.getAudiences().size() != 1
                 || !tokenExchange.getAudiences().contains(properties.getOrderAudience())) {
+            log.warn("[MCP-AUTH][AUDIENCE_REJECTED] token exchange requested unsupported "
+                            + "audience, requestedAudiences={}, expectedAudience={}",
+                    tokenExchange.getAudiences(), properties.getOrderAudience());
             throw error(INVALID_TARGET, "Unsupported audience");
         }
     }
@@ -188,6 +207,9 @@ public class McpTokenExchangeAuthenticationProvider implements AuthenticationPro
                 ? Set.of(McpScopes.ORDER_READ_SELF)
                 : tokenExchange.getScopes();
         if (!registeredClient.getScopes().containsAll(requested)) {
+            log.warn("[MCP-AUTH][SCOPE_REJECTED] client requested unregistered scopes, "
+                            + "clientId={}, requestedScopes={}, registeredScopes={}",
+                    registeredClient.getClientId(), requested, registeredClient.getScopes());
             throw error(OAuth2ErrorCodes.INVALID_SCOPE, "Client requested an unregistered scope");
         }
 
@@ -198,6 +220,9 @@ public class McpTokenExchangeAuthenticationProvider implements AuthenticationPro
         }
         allowed.retainAll(requested);
         if (allowed.isEmpty()) {
+            log.warn("[MCP-AUTH][SCOPE_REJECTED] user is not allowed to receive requested scopes, "
+                            + "clientId={}, userId={}, role={}, requestedScopes={}",
+                    registeredClient.getClientId(), user.userId(), user.role(), requested);
             throw error(OAuth2ErrorCodes.INVALID_SCOPE, "User is not allowed to use the requested scope");
         }
         return Set.copyOf(allowed);

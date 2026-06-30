@@ -21,6 +21,7 @@ import com.nageoffer.ai.ragent.authserver.config.AuthServerProperties;
 import com.nageoffer.ai.ragent.authserver.user.McpUserPrincipal;
 import com.nimbusds.jose.jwk.RSAKey;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -35,6 +36,7 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class McpTokenClaimsCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext> {
 
     private final AuthServerProperties properties;
@@ -47,6 +49,8 @@ public class McpTokenClaimsCustomizer implements OAuth2TokenCustomizer<JwtEncodi
         }
 
         String clientId = context.getRegisteredClient().getClientId();
+        String tokenJti = UUID.randomUUID().toString();
+        Instant notBefore = Instant.now();
         context.getJwsHeader()
                 .algorithm(SignatureAlgorithm.RS256)
                 .keyId(authServerRsaKey.getKeyID());
@@ -54,23 +58,32 @@ public class McpTokenClaimsCustomizer implements OAuth2TokenCustomizer<JwtEncodi
                 .audience(List.of(properties.getOrderAudience()))
                 .claim("client_id", clientId)
                 .claim("azp", clientId)
-                .id(UUID.randomUUID().toString())
-                .notBefore(Instant.now());
+                .id(tokenJti)
+                .notBefore(notBefore);
 
         Authentication principal = context.getPrincipal();
+        String subject = clientId;
+        String role = "system";
         if (AuthorizationGrantType.TOKEN_EXCHANGE.equals(context.getAuthorizationGrantType())
                 && principal != null
                 && principal.getPrincipal() instanceof McpUserPrincipal userPrincipal) {
+            subject = userPrincipal.user().userId();
+            role = userPrincipal.user().role();
             context.getClaims()
-                    .subject(userPrincipal.user().userId())
+                    .subject(subject)
                     .claim("username", userPrincipal.user().username())
-                    .claim("role", userPrincipal.user().role());
-            return;
+                    .claim("role", role);
+        } else {
+            context.getClaims()
+                    .subject(subject)
+                    .claim("username", clientId)
+                    .claim("role", role);
         }
-
-        context.getClaims()
-                .subject(clientId)
-                .claim("username", clientId)
-                .claim("role", "system");
+        log.info("[MCP-AUTH][TOKEN_SIGNING] preparing RS256 access token, grantType={}, "
+                        + "clientId={}, subject={}, role={}, audience={}, scopes={}, tokenJti={}, "
+                        + "keyId={}",
+                context.getAuthorizationGrantType().getValue(), clientId, subject, role,
+                properties.getOrderAudience(), context.getAuthorizedScopes(), tokenJti,
+                authServerRsaKey.getKeyID());
     }
 }

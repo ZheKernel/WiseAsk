@@ -20,6 +20,7 @@ package com.nageoffer.ai.ragent.rag.core.mcp;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nageoffer.ai.ragent.rag.config.McpAuthorizationProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServerMcpAccessTokenProvider implements McpAccessTokenProvider {
 
     private static final String TOKEN_EXCHANGE_GRANT =
@@ -54,16 +56,34 @@ public class AuthServerMcpAccessTokenProvider implements McpAccessTokenProvider 
     @Override
     public McpAccessToken serviceToken(String audience) {
         String cacheKey = "service|" + audience;
-        return tokenCache.getOrLoad(cacheKey, () -> requestToken(serviceTokenForm()));
+        String cacheContext = "flow=client_credentials,audience=" + audience;
+        return tokenCache.getOrLoad(
+                cacheKey,
+                cacheContext,
+                () -> requestToken(
+                        "client_credentials",
+                        audience,
+                        List.of(McpScopes.DISCOVER),
+                        serviceTokenForm()
+                )
+        );
     }
 
     @Override
     public McpAccessToken userToken(String subjectToken, String audience, String role) {
         List<String> scopes = scopesForRole(role);
         String cacheKey = userCacheKey(subjectToken, audience, scopes);
+        String cacheContext = "flow=token_exchange,role=" + role
+                + ",audience=" + audience + ",scopes=" + scopes;
         return tokenCache.getOrLoad(
                 cacheKey,
-                () -> requestToken(userTokenForm(subjectToken, audience, scopes))
+                cacheContext,
+                () -> requestToken(
+                        "token_exchange",
+                        audience,
+                        scopes,
+                        userTokenForm(subjectToken, audience, scopes)
+                )
         );
     }
 
@@ -101,24 +121,49 @@ public class AuthServerMcpAccessTokenProvider implements McpAccessTokenProvider 
         return form;
     }
 
-    private McpAccessToken requestToken(MultiValueMap<String, String> form) {
-        TokenResponse response = restClient.post()
-                .uri(properties.getTokenUri())
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(form)
-                .retrieve()
-                .body(TokenResponse.class);
-        if (response == null
-                || response.accessToken() == null
-                || !"Bearer".equalsIgnoreCase(response.tokenType())) {
-            throw new IllegalStateException("Auth Server returned an invalid token response");
+    private McpAccessToken requestToken(
+            String flow,
+            String audience,
+            List<String> requestedScopes,
+            MultiValueMap<String, String> form) {
+        long startMs = System.currentTimeMillis();
+        log.info("[MCP-AUTH][TOKEN_REQUEST] sending OAuth request to Auth Server, flow={}, "
+                        + "clientId={}, audience={}, requestedScopes={}, tokenUri={}",
+                flow, properties.getClientId(), audience, requestedScopes, properties.getTokenUri());
+        try {
+            TokenResponse response = restClient.post()
+                    .uri(properties.getTokenUri())
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(TokenResponse.class);
+            if (response == null
+                    || response.accessToken() == null
+                    || !"Bearer".equalsIgnoreCase(response.tokenType())) {
+                throw new IllegalStateException("Auth Server returned an invalid token response");
+            }
+            long expiresIn = Math.max(1L, response.expiresIn());
+            McpAccessToken accessToken = new McpAccessToken(
+                    response.accessToken(),
+                    Instant.now().plusSeconds(expiresIn),
+                    parseScopes(response.scope())
+            );
+            log.info("[MCP-AUTH][TOKEN_RECEIVED] Auth Server credential accepted, flow={}, "
+                            + "clientId={}, audience={}, grantedScopes={}, tokenJti={}, expiresAt={}, "
+                            + "elapsed={}ms",
+                    flow, properties.getClientId(), audience, accessToken.scopes(),
+                    McpJwtLogSupport.tokenId(accessToken.value()), accessToken.expiresAt(),
+                    System.currentTimeMillis() - startMs);
+            return accessToken;
+        } catch (RuntimeException ex) {
+            log.warn("[MCP-AUTH][TOKEN_REQUEST_FAILED] Auth Server credential request failed, "
+                            + "flow={}, clientId={}, audience={}, requestedScopes={}, elapsed={}ms, "
+                            + "reason={}",
+                    flow, properties.getClientId(), audience, requestedScopes,
+                    System.currentTimeMillis() - startMs,
+                    ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
+            throw ex;
         }
-        long expiresIn = Math.max(1L, response.expiresIn());
-        return new McpAccessToken(
-                response.accessToken(),
-                Instant.now().plusSeconds(expiresIn),
-                parseScopes(response.scope())
-        );
     }
 
     private List<String> scopesForRole(String role) {

@@ -257,8 +257,11 @@ public class OrderMcpExecutor {
         if (ex instanceof IllegalArgumentException) {
             message = ex.getMessage();
         }
-        log.warn("Order MCP call failed, actor={}, role={}, tool={}, elapsed={}ms, reason={}",
-                caller.userId(), caller.role(), toolId, System.currentTimeMillis() - startMs, ex.getMessage());
+        log.warn("[MCP-AUTH][TOOL_RESULT] Order MCP call failed, decision={}, tokenJti={}, "
+                        + "clientId={}, actor={}, role={}, tool={}, elapsed={}ms, reason={}",
+                forbidden ? "DENY" : "ERROR", caller.tokenId(), caller.clientId(),
+                caller.userId(), caller.role(), toolId, System.currentTimeMillis() - startMs,
+                ex.getMessage());
         return CallToolResult.builder()
                 .content(List.of(new TextContent(message)))
                 .isError(true)
@@ -266,7 +269,9 @@ public class OrderMcpExecutor {
     }
 
     private void logAudit(McpCallerIdentity caller, String toolId, int resultCount, long startMs) {
-        log.info("Order MCP audit, actor={}, role={}, tool={}, resultCount={}, elapsed={}ms",
-                caller.userId(), caller.role(), toolId, resultCount, System.currentTimeMillis() - startMs);
+        log.info("[MCP-AUTH][TOOL_RESULT] Order MCP call completed, decision=ALLOW, tokenJti={}, "
+                        + "clientId={}, actor={}, role={}, tool={}, resultCount={}, elapsed={}ms",
+                caller.tokenId(), caller.clientId(), caller.userId(), caller.role(), toolId,
+                resultCount, System.currentTimeMillis() - startMs);
     }
 }

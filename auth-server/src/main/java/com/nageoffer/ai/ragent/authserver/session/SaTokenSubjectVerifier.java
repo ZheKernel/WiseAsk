@@ -21,24 +21,38 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.nageoffer.ai.ragent.authserver.user.AuthUser;
 import com.nageoffer.ai.ragent.authserver.user.AuthUserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SaTokenSubjectVerifier {
 
     private final AuthUserRepository userRepository;
 
     public Optional<AuthUser> verify(String subjectToken) {
         if (subjectToken == null || subjectToken.isBlank()) {
+            log.warn("[MCP-AUTH][SUBJECT_REJECTED] missing Sa-Token subject credential");
             return Optional.empty();
         }
         Object loginId = StpUtil.getLoginIdByToken(subjectToken);
         if (loginId == null) {
+            log.warn("[MCP-AUTH][SUBJECT_REJECTED] Sa-Token session is invalid or expired");
             return Optional.empty();
         }
-        return userRepository.findActiveById(String.valueOf(loginId));
+        Optional<AuthUser> user = userRepository.findActiveById(String.valueOf(loginId));
+        if (user.isPresent()) {
+            AuthUser verified = user.get();
+            log.info("[MCP-AUTH][SUBJECT_VERIFIED] Sa-Token session and active user verified, "
+                            + "userId={}, username={}, role={}",
+                    verified.userId(), verified.username(), verified.role());
+        } else {
+            log.warn("[MCP-AUTH][SUBJECT_REJECTED] session user is missing or disabled, userId={}",
+                    loginId);
+        }
+        return user;
     }
 }

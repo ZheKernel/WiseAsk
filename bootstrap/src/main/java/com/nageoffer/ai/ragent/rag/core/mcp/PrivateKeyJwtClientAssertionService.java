@@ -24,6 +24,7 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -32,6 +33,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PrivateKeyJwtClientAssertionService {
 
     private final McpAuthorizationProperties properties;
@@ -40,6 +42,8 @@ public class PrivateKeyJwtClientAssertionService {
     public String create() {
         try {
             Instant now = Instant.now();
+            Instant expiresAt = now.plusSeconds(properties.getClientAssertionTtlSeconds());
+            String assertionJti = UUID.randomUUID().toString();
             SignedJWT assertion = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.RS256)
                             .keyID(keyManager.privateKey().getKeyID())
@@ -49,15 +53,20 @@ public class PrivateKeyJwtClientAssertionService {
                             .subject(properties.getClientId())
                             .audience(properties.getTokenUri())
                             .issueTime(Date.from(now))
-                            .expirationTime(Date.from(now.plusSeconds(
-                                    properties.getClientAssertionTtlSeconds()
-                            )))
-                            .jwtID(UUID.randomUUID().toString())
+                            .expirationTime(Date.from(expiresAt))
+                            .jwtID(assertionJti)
                             .build()
             );
             assertion.sign(new RSASSASigner(keyManager.privateKey()));
+            log.info("[MCP-AUTH][CLIENT_ASSERTION] signed private_key_jwt, clientId={}, keyId={}, "
+                            + "assertionJti={}, audience={}, expiresAt={}",
+                    properties.getClientId(), keyManager.privateKey().getKeyID(),
+                    assertionJti, properties.getTokenUri(), expiresAt);
             return assertion.serialize();
         } catch (Exception ex) {
+            log.warn("[MCP-AUTH][CLIENT_ASSERTION_FAILED] failed to sign private_key_jwt, "
+                            + "clientId={}, audience={}, reason={}",
+                    properties.getClientId(), properties.getTokenUri(), ex.getClass().getSimpleName());
             throw new IllegalStateException("Failed to sign OAuth client assertion", ex);
         }
     }

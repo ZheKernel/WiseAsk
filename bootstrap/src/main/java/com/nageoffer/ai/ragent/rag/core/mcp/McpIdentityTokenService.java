@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.rag.core.mcp;
 
 import com.nageoffer.ai.ragent.framework.context.LoginUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class McpIdentityTokenService {
 
     private final McpSubjectTokenContext subjectTokenContext;
@@ -35,16 +37,24 @@ public class McpIdentityTokenService {
         if (user == null) {
             throw new IllegalArgumentException("MCP caller must not be null");
         }
+        log.info("[MCP-AUTH][TOKEN_RESOLVE] resolving delegated MCP credential, userId={}, "
+                        + "role={}, audience={}",
+                user.getUserId(), user.getRole(), audience);
         return accessTokenProvider
                 .userToken(subjectTokenContext.requireToken(), audience, user.getRole())
                 .value();
     }
 
     public String issueServiceIdentity(String audience) {
+        log.info("[MCP-AUTH][TOKEN_RESOLVE] resolving service MCP credential, audience={}",
+                audience);
         return accessTokenProvider.serviceToken(audience).value();
     }
 
     public void invalidate(LoginUser user, String audience) {
+        log.warn("[MCP-AUTH][TOKEN_INVALIDATE] invalidating delegated MCP credential after "
+                        + "resource-server rejection, userId={}, role={}, audience={}",
+                user.getUserId(), user.getRole(), audience);
         accessTokenProvider.invalidateUserToken(
                 subjectTokenContext.requireToken(),
                 audience,

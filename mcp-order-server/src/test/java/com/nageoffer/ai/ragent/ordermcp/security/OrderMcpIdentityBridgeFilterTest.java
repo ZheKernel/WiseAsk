@@ -52,6 +52,7 @@ class OrderMcpIdentityBridgeFilterTest {
                         "role", "user",
                         "scope", "order:read:self",
                         "client_id", "ragent",
+                        "jti", "token-jti-1",
                         "aud", List.of("order-mcp")
                 )
         );
@@ -70,7 +71,8 @@ class OrderMcpIdentityBridgeFilterTest {
                         "alice",
                         "user",
                         Set.of("order:read:self"),
-                        "ragent"
+                        "ragent",
+                        "token-jti-1"
                 ),
                 request.getAttribute(OrderMcpIdentityContext.REQUEST_ATTRIBUTE)
         );

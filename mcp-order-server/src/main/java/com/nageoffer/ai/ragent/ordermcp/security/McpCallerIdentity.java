@@ -27,14 +27,24 @@ public record McpCallerIdentity(
         String username,
         String role,
         Set<String> scopes,
-        String clientId) {
+        String clientId,
+        String tokenId) {
 
     public McpCallerIdentity {
         scopes = scopes == null ? Set.of() : Set.copyOf(scopes);
     }
 
     public McpCallerIdentity(String userId, String username, String role) {
-        this(userId, username, role, Set.of(), null);
+        this(userId, username, role, Set.of(), null, null);
+    }
+
+    public McpCallerIdentity(
+            String userId,
+            String username,
+            String role,
+            Set<String> scopes,
+            String clientId) {
+        this(userId, username, role, scopes, clientId, null);
     }
 
     public boolean hasScope(String scope) {
