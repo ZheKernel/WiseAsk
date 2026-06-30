@@ -16,7 +16,8 @@
 
 ## 仓库地图
 
-- 后端模块：`framework`、`infra-ai`、`bootstrap`、`mcp-server`。
+- 后端模块：`framework`、`infra-ai`、`bootstrap`、`mcp-auth`、`auth-server`、
+  `mcp-server`、`mcp-order-server`。
 - 前端应用：`frontend`。
 - 数据库脚本：`resources/database`。
 - 运行和 Compose 文件：`resources/docker`。

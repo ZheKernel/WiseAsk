@@ -72,19 +72,26 @@ eval_user_001 ... eval_user_100 / Eval@123
 
 ## 2. 启动服务
 
-两个服务必须使用相同的 `RAGENT_MCP_SHARED_SECRET`。本地配置已经提供开发默认值，也可以显式设置：
+先启动 Auth Server：
 
 ```powershell
-$env:RAGENT_MCP_SHARED_SECRET="<same-32-byte-development-secret>"
+.\mvnw.cmd -pl auth-server -am spring-boot:run
+```
+
+再启动 Order MCP：
+
+```powershell
 .\mvnw.cmd -pl mcp-order-server -am spring-boot:run
 ```
 
-在另一个终端启动 Ragent：
+最后在另一个终端启动 Ragent：
 
 ```powershell
-$env:RAGENT_MCP_SHARED_SECRET="<same-32-byte-development-secret>"
 .\mvnw.cmd -pl bootstrap -am spring-boot:run
 ```
+
+Ragent 使用独有 RSA 私钥通过 `private_key_jwt` 向 Auth Server 认证；Order MCP 只使用
+Auth Server JWKS 验证 RS256 Access Token，不再配置共享 HMAC Secret。
 
 确认以下配置生效：
 

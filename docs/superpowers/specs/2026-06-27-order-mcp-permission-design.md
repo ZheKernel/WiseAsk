@@ -61,10 +61,12 @@ Startup-time MCP initialization and tool discovery use a short-lived
 `system` identity. The `system` role may initialize and list tools but may not
 execute order query tools.
 
-For localhost development, both processes use the same documented development
-fallback key and the order MCP client is enabled by default. Production must
-override the fallback through `RAGENT_MCP_SHARED_SECRET`; production secrets
-must never be stored in source control.
+> This original HMAC design was superseded on 2026-06-30 by
+> `2026-06-30-auth-server-mcp-delegation-design.md`.
+
+The current implementation uses Ragent `private_key_jwt` client authentication,
+an independent Auth Server signing key, and Order MCP JWKS verification. No
+shared HMAC secret remains between Ragent and Order MCP.
 
 ## Tools
 

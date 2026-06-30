@@ -33,6 +33,7 @@
 | PostgreSQL | `localhost:5432/ragent` |
 | Redis | `localhost:6379`，密码 `123456` |
 | RocketMQ NameServer | `localhost:9876` |
+| Auth Server | `http://localhost:9200` |
 | Order MCP | `http://localhost:9100` |
 | Ragent | `http://localhost:9090/api/ragent` |
 | 同步评测接口 | `http://localhost:9090/api/ragent/rag/eval` |
@@ -235,40 +236,36 @@ order_detail
 order_admin_search
 ```
 
-## 6. 启动 Order MCP
+## 6. 启动 Auth Server
 
 打开第一个 PowerShell：
+
+```powershell
+cd E:\Java_code\ragent
+.\mvnw.cmd -pl auth-server -am spring-boot:run
+```
+
+Auth Server 读取与 Ragent 相同的 PostgreSQL 用户表和 Redis Sa-Token 会话，并监听：
+
+```text
+http://localhost:9200
+```
+
+## 7. 启动 Order MCP
+
+打开第二个 PowerShell：
 
 ```powershell
 cd E:\Java_code\ragent
 .\mvnw.cmd -pl mcp-order-server -am spring-boot:run
 ```
 
-Order MCP 默认连接：
+Order MCP 默认连接 `jdbc:postgresql://localhost:5432/ragent`，并监听
+`http://localhost:9100`。
 
-```text
-jdbc:postgresql://localhost:5432/ragent
-username: postgres
-password: postgres
-```
+## 8. 启动 Ragent
 
-启动成功后保持该终端运行。
-
-服务地址：
-
-```text
-http://localhost:9100
-```
-
-如果端口被占用，可以检查：
-
-```powershell
-Get-NetTCPConnection -LocalPort 9100 -ErrorAction SilentlyContinue
-```
-
-## 7. 启动 Ragent
-
-Order MCP 启动成功后，再打开第二个 PowerShell：
+Order MCP 启动成功后，再打开第三个 PowerShell：
 
 ```powershell
 cd E:\Java_code\ragent
@@ -303,16 +300,16 @@ order_admin_search
 
 1. 确认 Order MCP 已经监听 `9100`。
 2. 确认先启动 Order MCP，再启动 Ragent。
-3. 确认两个服务的 `RAGENT_MCP_SHARED_SECRET` 一致。
-4. 重启 Ragent，让它重新执行 MCP 工具发现。
+3. 确认 Auth Server 可以访问 Ragent 的
+   `/.well-known/oauth-client-jwks`。
+4. 确认 Auth Server JWKS、Issuer 和 `order-mcp` Audience 配置一致。
+5. 重启 Ragent，让它重新执行 MCP 工具发现。
 
-本地默认配置中的两个共享密钥一致。如果手工设置环境变量，则两个终端必须使用完全相同的值。
-
-## 8. 手工测试普通用户
+## 9. 手工测试普通用户
 
 打开第三个 PowerShell。
 
-### 8.1 登录普通用户
+### 9.1 登录普通用户
 
 ```powershell
 $body = @{
@@ -338,7 +335,7 @@ $token
 @{ Authorization = $token }
 ```
 
-### 8.2 查询自己的订单
+### 9.2 查询自己的订单
 
 ```powershell
 $question = [Uri]::EscapeDataString("查询我的最近5条订单")
@@ -360,7 +357,7 @@ mcpContext 包含 EVAL-U0001
 mcpContext 不包含其他用户的 EVAL-U 编号
 ```
 
-### 8.3 查询其他用户订单详情
+### 9.3 查询其他用户订单详情
 
 ```powershell
 $question = [Uri]::EscapeDataString(
@@ -386,7 +383,7 @@ mcpContext 不包含 EVAL_OWNER_0002
 
 这里 `hasMcp=true` 是正确的，因为普通用户可以调用订单详情工具，但 SQL 会绑定当前用户 ID，因此查不到其他用户订单。
 
-### 8.4 普通用户尝试管理员查询
+### 9.4 普通用户尝试管理员查询
 
 ```powershell
 $question = [Uri]::EscapeDataString("查询所有用户最近5条订单")
@@ -409,7 +406,7 @@ mcpContext 为空
 
 这说明系统能够识别管理员查询意图，但权限层不允许普通用户执行管理员工具。
 
-## 9. 手工测试管理员
+## 10. 手工测试管理员
 
 登录管理员：
 
@@ -454,7 +451,7 @@ mcpContext 包含 EVAL-U0002
 
 手工测试通过后再执行自动评测。如果手工测试失败，直接运行 1000 或 10000 个请求只会产生大量重复错误和模型调用成本。
 
-## 10. 验证 Python 评测程序
+## 11. 验证 Python 评测程序
 
 进入评测目录：
 
@@ -485,7 +482,7 @@ python run_evaluation.py `
 
 预期看到不同用户和自然语言问题，但不会生成正式报告，也不会调用模型。
 
-## 11. 执行小规模评测
+## 12. 执行小规模评测
 
 第一次只执行 20 个请求：
 
@@ -512,7 +509,7 @@ python run_evaluation.py `
     --concurrency 4
 ```
 
-## 12. 执行标准评测
+## 13. 执行标准评测
 
 配置文件默认参数：
 
@@ -529,7 +526,7 @@ python run_evaluation.py --config config.example.json
 
 标准评测会调用问题改写、意图分类和参数提取模型，需要提前确认模型额度和并发限制。
 
-## 13. 执行压力评测
+## 14. 执行压力评测
 
 只有小规模和标准评测通过后，才执行：
 
@@ -550,7 +547,7 @@ python run_evaluation.py `
 
 10000 次评测会产生模型 API 成本，不建议在配置尚未验证时直接运行。
 
-## 14. 查看评测报告
+## 15. 查看评测报告
 
 报告目录：
 
@@ -597,7 +594,7 @@ Get-Content "$($latest.FullName)\results.jsonl" |
 | `summary.json` | 程序可以继续处理的指标 |
 | `results.jsonl` | 每个请求的输入、预期和判定结果 |
 
-## 15. 重点关注的指标
+## 16. 重点关注的指标
 
 | 指标 | 建议 |
 | --- | --- |
@@ -616,7 +613,7 @@ Get-Content "$($latest.FullName)\results.jsonl" |
 只要 security_leak_count > 0，整轮评测失败。
 ```
 
-## 16. 常见问题
+## 17. 常见问题
 
 ### `/rag/eval` 返回 404
 
@@ -674,7 +671,7 @@ rag:
 - JWT 中的 `sub` 是否为当前登录用户 ID。
 - Order MCP 是否信任了工具参数中的 `userId`。
 - 普通用户详情 SQL 是否同时使用 `order_no` 和令牌用户 ID。
-- 是否绕过了 `OrderMcpAuthenticationFilter`。
+- 是否绕过了 Spring Security Resource Server 或 `OrderMcpIdentityBridgeFilter`。
 
 ### 大量 `transport_error_rate`
 
@@ -695,7 +692,7 @@ concurrency = 2 或 4
 
 确认稳定后再逐步增加。
 
-## 17. 清理评测数据
+## 18. 清理评测数据
 
 清理时必须先删除订单，再删除用户。
 
@@ -730,7 +727,7 @@ WHERE username = 'eval_admin'
 0
 ```
 
-## 18. 推荐执行顺序
+## 19. 推荐执行顺序
 
 实际操作时严格按照以下顺序：
 
@@ -739,19 +736,20 @@ WHERE username = 'eval_admin'
 2. 使用 pgAdmin 执行订单表和意图 SQL
 3. 导入评测用户和 10 万条订单
 4. 使用 SQL 验证数据数量
-5. 启动 Order MCP
-6. 启动 Ragent
-7. 手工测试普通用户本人查询
-8. 手工测试普通用户越权查询
-9. 手工测试管理员查询
-10. 运行 Python 单元测试
-11. 运行 dry-run
-12. 运行 20 请求、并发 2
-13. 运行 50 请求、并发 4
-14. 运行 1000 请求标准评测
-15. 检查报告和失败用例
-16. 确认稳定后再运行 10000 请求
-17. 测试结束后清理合成数据
+5. 启动 Auth Server
+6. 启动 Order MCP
+7. 启动 Ragent
+8. 手工测试普通用户本人查询
+9. 手工测试普通用户越权查询
+10. 手工测试管理员查询
+11. 运行 Python 单元测试
+12. 运行 dry-run
+13. 运行 20 请求、并发 2
+14. 运行 50 请求、并发 4
+15. 运行 1000 请求标准评测
+16. 检查报告和失败用例
+17. 确认稳定后再运行 10000 请求
+18. 测试结束后清理合成数据
 ```
 
 不要跳过手工测试直接运行大规模评测。手工测试可以提前发现工具未注册、模型配置错误或权限策略错误，避免浪费模型调用费用。

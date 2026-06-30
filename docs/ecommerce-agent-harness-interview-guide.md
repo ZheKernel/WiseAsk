@@ -365,12 +365,14 @@ LLM 生成的工具参数属于不可信输入。
 ### 9.2 身份透传
 
 ```text
-Ragent 当前 LoginUser
+Ragent 当前 LoginUser + Sa-Token
   -> 检查工具权限
-  -> 签发短期内部 JWT
-  -> Authorization: Bearer <token>
-  -> OrderMcpAuthenticationFilter
-  -> 校验签名、issuer、audience 及令牌生效/过期时间
+  -> 使用 Ragent 私钥生成 private_key_jwt Client Assertion
+  -> Auth Server 验证 Client JWKS、Sa-Token 会话和 t_user
+  -> Auth Server 签发 RS256 Access Token
+  -> Authorization: Bearer <access-token>
+  -> Spring Security Resource Server + OrderMcpIdentityBridgeFilter
+  -> 校验签名、issuer、audience、scope 及令牌生效/过期时间
   -> McpCallerIdentity 写入 TransportContext
 ```
 
@@ -379,6 +381,8 @@ JWT 包含：
 - `sub`
 - `username`
 - `role`
+- `scope`
+- `client_id`
 - `iss`
 - `aud`
 - `iat`
@@ -396,8 +400,8 @@ JWT 包含：
 
 第二层位于 Order MCP：
 
-- 独立验证 JWT。
-- 再次检查管理员角色。
+- 通过 Auth Server JWKS 独立验证 JWT。
+- 再次检查 Scope 和管理员角色。
 - SQL 强制绑定令牌用户 ID。
 
 即使绕过 Ragent 直接请求 MCP，也不能绕过最终权限边界。

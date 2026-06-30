@@ -9,13 +9,47 @@
 Scope、角色和 SQL 行级过滤。
 
 **架构：** 浏览器登录继续使用 Sa-Token。Ragent 是 OAuth Confidential Client，
-通过 Token Exchange 把当前 Sa-Token 交换为 Audience 绑定的 RS256 Access Token。
+使用独有私钥生成 `private_key_jwt` Client Assertion，再通过 Token Exchange 把当前
+Sa-Token 交换为 Audience 绑定的 RS256 Access Token。
 Auth Server 验证 Sa-Token Redis 会话并查询 `t_user` 决定用户角色和最终 Scope。
 Order MCP 作为 OAuth Resource Server 只持有公钥验证能力。
 
 **技术栈：** Java 17、Spring Boot 3.5.7、Spring Authorization Server、
 Spring Security OAuth2 Resource Server、Sa-Token 1.43.0、Redis、PostgreSQL、
 MCP Java SDK 1.1.2、JUnit 5、Mockito、MockMvc。
+
+---
+
+## 当前实施状态（2026-06-30）
+
+已完成：
+
+- 新增独立 `auth-server`，支持配置多个 `private_key_jwt` Client 及 JWKS 地址。
+- 使用 Redis `SET NX + TTL` 对 Client Assertion `jti` 做集群级防重放。
+- 使用 Sa-Token `subject_token` 完成 Token Exchange，并从 `t_user` 重新读取角色。
+- Ragent 已完成用户凭证上下文、RS256 Client Assertion、短期 Token 缓存、请求超时和
+  401 单次重试。
+- Order MCP 已迁移为 RS256 Resource Server，并执行 Scope、角色和 SQL 行级过滤。
+- 旧 HS256 共享密钥、Codec 和自定义验签 Filter 已删除，不保留双算法降级入口。
+- 聚焦验证通过：Auth Server 9 个、Ragent MCP 11 个、Order MCP 15 个、Python
+  评测 15 个测试。
+
+尚需在完整本地基础设施启动后执行：
+
+- PostgreSQL、Redis、Auth Server、Order MCP、Ragent 的真实进程联调。
+- 从 `/rag/eval` 发起 Chat 权限评测，并记录 Token Exchange 与缓存命中的 P95/P99。
+- `bootstrap` 全量测试需要 Redis 等外部依赖；当前环境未启动 Redis，因此全量上下文
+  测试不作为本次代码回归结论。
+
+实施偏差：
+
+- Token Exchange 请求转换直接使用 Spring Authorization Server 1.5.3 内置
+  `OAuth2TokenExchangeAuthenticationToken`，没有重复实现自定义 Converter/Token。
+- 未实现计划中的 `legacy-hmac` 兼容模式，而是一次性删除旧链路，避免长期保留算法
+  降级入口。
+- 当前生产密钥入口支持 PKCS12；PEM、KMS/HSM 和双 `kid` 平滑轮换保留为后续增强。
+
+下面任务清单保留原始设计分解，以上状态为当前实现结果。
 
 ---
 
@@ -187,8 +221,8 @@ sa-token-redis-template
 - [ ] 暴露 Spring Authorization Server JWKS Endpoint。
 - [ ] 预留从 PKCS12、PEM 或外部密钥系统加载生产私钥的配置接口。
 - [ ] 实现 `RegisteredClientConfig`。
-- [ ] 注册唯一的 `ragent` Confidential Client。
-- [ ] 本地阶段支持 `client_secret_basic`。
+- [x] 支持配置多个 Confidential Client。
+- [x] 客户端认证只使用 `private_key_jwt`，Auth Server 保存各 Client 的 JWKS 地址。
 - [ ] Client 只允许：
 
 ```text
@@ -294,7 +328,7 @@ async MCP task receives intended token
 ## Task 6：实现 Ragent OAuth Token Client 和缓存
 
 - [ ] 新增 `McpAuthorizationProperties`。
-- [ ] 配置 Token URI、Client ID、Client Secret、连接超时、读取超时和缓存提前量。
+- [ ] 配置 Token URI、Client ID、Client 私钥、连接超时、读取超时和缓存提前量。
 - [ ] 使用 Spring `RestClient` 调用 `/oauth2/token`。
 - [ ] 服务发现使用：
 
@@ -463,7 +497,10 @@ AUTH_SERVER_ISSUER
 AUTH_SERVER_TOKEN_URI
 AUTH_SERVER_JWK_SET_URI
 RAGENT_OAUTH_CLIENT_ID
-RAGENT_OAUTH_CLIENT_SECRET
+RAGENT_CLIENT_JWK_SET_URI
+RAGENT_CLIENT_KEYSTORE_PATH
+RAGENT_CLIENT_KEYSTORE_PASSWORD
+RAGENT_CLIENT_KEY_ALIAS
 AUTH_SERVER_KEYSTORE_PATH
 AUTH_SERVER_KEYSTORE_PASSWORD
 AUTH_SERVER_KEY_ALIAS
