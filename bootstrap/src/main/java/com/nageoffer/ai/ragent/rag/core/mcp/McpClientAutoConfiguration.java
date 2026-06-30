@@ -28,9 +28,10 @@ import io.modelcontextprotocol.spec.McpSchema.ListToolsResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public class McpClientAutoConfiguration {
 
     private final List<McpSyncClient> clients = new ArrayList<>();
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void init() {
         List<McpClientProperties.ServerConfig> servers = properties.getServers();
         if (servers == null || servers.isEmpty()) {

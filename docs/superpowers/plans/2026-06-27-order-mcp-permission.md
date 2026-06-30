@@ -43,3 +43,9 @@
 - [x] Align the Ragent and order-service localhost signing keys.
 - [x] Distinguish local bean discovery logs from completed remote registration.
 - [x] Verify that the order service exposes all three tools and Ragent enables remote discovery.
+
+## Task 7: OAuth Module Consolidation
+
+- [x] Replace the original shared-secret flow with the Auth Server delegation design.
+- [x] Move the verified caller model into `mcp-order-server`.
+- [x] Remove the obsolete `mcp-auth` and sample `mcp-server` modules.

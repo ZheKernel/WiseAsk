@@ -18,6 +18,7 @@ spring:
 
 order-mcp:
   auth:
-    secret: ${RAGENT_MCP_SHARED_SECRET:ragent-local-order-mcp-signing-key-32-bytes}
-    issuer: ${RAGENT_MCP_ISSUER:ragent}
+    issuer: ${AUTH_SERVER_ISSUER:http://localhost:9200}
+    jwk-set-uri: ${AUTH_SERVER_JWK_SET_URI:http://localhost:9200/oauth2/jwks}
     audience: ${ORDER_MCP_AUDIENCE:order-mcp}
+    resource: ${ORDER_MCP_RESOURCE:http://localhost:9100}

@@ -1,0 +1,53 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.nageoffer.ai.ragent.ordermcp.security;
+
+import java.util.Set;
+
+/**
+ * Caller identity constructed only from a JWT verified by the order resource server.
+ */
+public record McpCallerIdentity(
+        String userId,
+        String username,
+        String role,
+        Set<String> scopes,
+        String clientId,
+        String tokenId) {
+
+    public McpCallerIdentity {
+        scopes = scopes == null ? Set.of() : Set.copyOf(scopes);
+    }
+
+    public McpCallerIdentity(String userId, String username, String role) {
+        this(userId, username, role, Set.of(), null, null);
+    }
+
+    public McpCallerIdentity(
+            String userId,
+            String username,
+            String role,
+            Set<String> scopes,
+            String clientId) {
+        this(userId, username, role, scopes, clientId, null);
+    }
+
+    public boolean hasScope(String scope) {
+        return scopes.contains(scope);
+    }
+}

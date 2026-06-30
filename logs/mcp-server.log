@@ -1,9 +1,9 @@
-2026-06-27 20:06:26 [main] INFO  com.cz.mcp.McpServerApplication - Starting McpServerApplication v1.0-SNAPSHOT using Java 17.0.18 with PID 35120 (E:\java\rag-test\rag\target\rag-1.0-SNAPSHOT.jar started by 曹哲 in e:\Java_code\ragent)
-2026-06-27 20:06:26 [main] INFO  com.cz.mcp.McpServerApplication - No active profile set, falling back to 1 default profile: "default"
-2026-06-27 20:06:30 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable tools capabilities, notification: true
-2026-06-27 20:06:30 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Registered tools: 2
-2026-06-27 20:06:30 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable resources capabilities, notification: true
-2026-06-27 20:06:30 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable prompts capabilities, notification: true
-2026-06-27 20:06:30 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable completions capabilities
-2026-06-27 20:06:30 [pool-2-thread-1] WARN  i.m.server.McpAsyncServer - Client requested unsupported protocol version: 2025-11-25, so the server will suggest the 2024-11-05 version instead
-2026-06-27 20:06:31 [main] INFO  com.cz.mcp.McpServerApplication - Started McpServerApplication in 5.476 seconds (process running for 6.618)
+2026-06-30 16:03:49 [main] INFO  com.cz.mcp.McpServerApplication - Starting McpServerApplication v1.0-SNAPSHOT using Java 17.0.18 with PID 36828 (E:\java\rag-test\rag\target\rag-1.0-SNAPSHOT.jar started by 曹哲 in e:\Java_code\ragent)
+2026-06-30 16:03:49 [main] INFO  com.cz.mcp.McpServerApplication - No active profile set, falling back to 1 default profile: "default"
+2026-06-30 16:03:53 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable tools capabilities, notification: true
+2026-06-30 16:03:53 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Registered tools: 2
+2026-06-30 16:03:53 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable resources capabilities, notification: true
+2026-06-30 16:03:53 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable prompts capabilities, notification: true
+2026-06-30 16:03:53 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable completions capabilities
+2026-06-30 16:03:53 [pool-2-thread-1] WARN  i.m.server.McpAsyncServer - Client requested unsupported protocol version: 2025-11-25, so the server will suggest the 2024-11-05 version instead
+2026-06-30 16:03:53 [main] INFO  com.cz.mcp.McpServerApplication - Started McpServerApplication in 5.114 seconds (process running for 5.958)

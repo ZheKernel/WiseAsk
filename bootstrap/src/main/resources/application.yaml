@@ -99,10 +99,21 @@ rag:
         enabled: ${ORDER_MCP_ENABLED:true}
         auth-enabled: true
         audience: ${ORDER_MCP_AUDIENCE:order-mcp}
-    identity:
-      secret: ${RAGENT_MCP_SHARED_SECRET:ragent-local-order-mcp-signing-key-32-bytes}
-      issuer: ${RAGENT_MCP_ISSUER:ragent}
-      ttl-seconds: 300
+    authorization:
+      token-uri: ${AUTH_SERVER_TOKEN_URI:http://localhost:9200/oauth2/token}
+      client-id: ${RAGENT_OAUTH_CLIENT_ID:ragent}
+      client-assertion-ttl-seconds: 60
+      cache-skew-seconds: 30
+      connect-timeout-millis: ${AUTH_SERVER_CONNECT_TIMEOUT_MILLIS:3000}
+      read-timeout-millis: ${AUTH_SERVER_READ_TIMEOUT_MILLIS:5000}
+      key-store-path: ${RAGENT_CLIENT_KEYSTORE_PATH:}
+      key-store-password: ${RAGENT_CLIENT_KEYSTORE_PASSWORD:}
+      key-alias: ${RAGENT_CLIENT_KEY_ALIAS:}
+      user-scopes:
+        - order:read:self
+      admin-scopes:
+        - order:read:self
+        - order:read:any
 
   permission:
     mcp:

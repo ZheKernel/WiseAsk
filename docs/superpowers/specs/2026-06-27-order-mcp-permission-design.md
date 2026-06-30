@@ -18,7 +18,7 @@ distinguish administrators from normal users or enforce row ownership.
 
 ## Module Layout
 
-### `mcp-auth`
+### `mcp-auth`（历史设计）
 
 A lightweight shared module containing:
 
@@ -27,6 +27,10 @@ A lightweight shared module containing:
 - issuer, audience, expiry and role validation
 
 It has no dependency on Ragent login state or the order database.
+
+> This module was removed on 2026-06-30 after the OAuth migration. The verified
+> caller model now belongs to `mcp-order-server`; each service owns the Scope
+> constants needed at its protocol boundary.
 
 ### `mcp-order-server`
 
@@ -61,10 +65,12 @@ Startup-time MCP initialization and tool discovery use a short-lived
 `system` identity. The `system` role may initialize and list tools but may not
 execute order query tools.
 
-For localhost development, both processes use the same documented development
-fallback key and the order MCP client is enabled by default. Production must
-override the fallback through `RAGENT_MCP_SHARED_SECRET`; production secrets
-must never be stored in source control.
+> This original HMAC design was superseded on 2026-06-30 by
+> `2026-06-30-auth-server-mcp-delegation-design.md`.
+
+The current implementation uses Ragent `private_key_jwt` client authentication,
+an independent Auth Server signing key, and Order MCP JWKS verification. No
+shared HMAC secret remains between Ragent and Order MCP.
 
 ## Tools
 

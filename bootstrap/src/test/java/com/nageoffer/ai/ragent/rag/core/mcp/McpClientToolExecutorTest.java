@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class McpClientToolExecutorTest {
@@ -86,6 +87,36 @@ class McpClientToolExecutorTest {
         Assertions.assertSame(expected, executor.execute(Map.of(), caller));
 
         verifyNoInteractions(tokenService);
+    }
+
+    @Test
+    void shouldRefreshTokenAndRetryOnlyOnceAfterUnauthorizedResponse() {
+        McpSyncClient client = mock(McpSyncClient.class);
+        McpIdentityTokenService tokenService = mock(McpIdentityTokenService.class);
+        McpRequestIdentityContext identityContext = new McpRequestIdentityContext();
+        LoginUser caller = LoginUser.builder().userId("user-1").role("user").build();
+        CallToolResult expected = result("ok");
+        when(tokenService.issue(caller, "order-mcp"))
+                .thenReturn("expired-token", "fresh-token");
+        when(client.callTool(any(CallToolRequest.class)))
+                .thenThrow(new IllegalStateException("HTTP 401 Unauthorized"))
+                .thenAnswer(invocation -> {
+                    Assertions.assertEquals("fresh-token", identityContext.currentToken());
+                    return expected;
+                });
+        McpClientToolExecutor executor = new McpClientToolExecutor(
+                client,
+                tool("order_list_mine"),
+                true,
+                "order-mcp",
+                tokenService,
+                identityContext
+        );
+
+        Assertions.assertSame(expected, executor.execute(Map.of(), caller));
+
+        verify(tokenService).invalidate(caller, "order-mcp");
+        verify(tokenService, times(2)).issue(caller, "order-mcp");
     }
 
     private Tool tool(String name) {

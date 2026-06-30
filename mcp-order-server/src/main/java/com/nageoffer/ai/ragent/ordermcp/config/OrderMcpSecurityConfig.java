@@ -17,24 +17,89 @@
 
 package com.nageoffer.ai.ragent.ordermcp.config;
 
-import com.nageoffer.ai.ragent.mcpauth.McpIdentityTokenCodec;
+import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpIdentityBridgeFilter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.time.Duration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
+@EnableWebSecurity
+@Slf4j
 public class OrderMcpSecurityConfig {
 
     @Bean
-    public McpIdentityTokenCodec mcpIdentityTokenCodec(OrderMcpAuthProperties properties) {
-        if (properties.getAudience() == null || properties.getAudience().isBlank()) {
-            throw new IllegalArgumentException("Order MCP identity audience must not be blank");
+    public JwtDecoder orderMcpJwtDecoder(OrderMcpAuthProperties properties) {
+        if (isBlank(properties.getIssuer())
+                || isBlank(properties.getJwkSetUri())
+                || isBlank(properties.getAudience())) {
+            throw new IllegalArgumentException(
+                    "Order MCP issuer, JWK Set URI and audience must not be blank"
+            );
         }
-        return new McpIdentityTokenCodec(
-                properties.getSecret(),
-                properties.getIssuer(),
-                Duration.ofMinutes(5)
-        );
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(properties.getJwkSetUri())
+                .jwsAlgorithm(SignatureAlgorithm.RS256)
+                .build();
+        OAuth2TokenValidator<Jwt> issuerValidator =
+                JwtValidators.createDefaultWithIssuer(properties.getIssuer());
+        OAuth2TokenValidator<Jwt> audienceValidator = jwt ->
+                jwt.getAudience().contains(properties.getAudience())
+                        ? OAuth2TokenValidatorResult.success()
+                        : OAuth2TokenValidatorResult.failure(new OAuth2Error(
+                                "invalid_token",
+                                "Required order-mcp audience is missing",
+                                null
+                        ));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                issuerValidator,
+                audienceValidator
+        ));
+        return decoder;
+    }
+
+    @Bean
+    public SecurityFilterChain orderMcpSecurityFilterChain(
+            HttpSecurity http,
+            JwtDecoder orderMcpJwtDecoder,
+            OrderMcpIdentityBridgeFilter identityBridgeFilter) throws Exception {
+        BearerTokenAuthenticationEntryPoint defaultEntryPoint =
+                new BearerTokenAuthenticationEntryPoint();
+        http.authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/.well-known/oauth-protected-resource").permitAll()
+                        .requestMatchers("/mcp").authenticated()
+                        .anyRequest().permitAll())
+                .oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.decoder(orderMcpJwtDecoder))
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            log.warn("[MCP-AUTH][TOKEN_REJECTED] Order MCP rejected Bearer "
+                                            + "credential before tool execution, path={}, "
+                                            + "reason={}",
+                                    request.getRequestURI(),
+                                    exception.getClass().getSimpleName());
+                            defaultEntryPoint.commence(request, response, exception);
+                        }))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable())
+                .addFilterAfter(identityBridgeFilter, BearerTokenAuthenticationFilter.class);
+        return http.build();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }
