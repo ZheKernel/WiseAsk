@@ -17,8 +17,6 @@
 
 package com.nageoffer.ai.ragent.ordermcp.security;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
 import org.springframework.stereotype.Service;
 
 @Service

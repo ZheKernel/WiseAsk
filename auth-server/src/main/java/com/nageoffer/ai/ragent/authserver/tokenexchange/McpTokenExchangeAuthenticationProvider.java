@@ -21,7 +21,7 @@ import com.nageoffer.ai.ragent.authserver.config.AuthServerProperties;
 import com.nageoffer.ai.ragent.authserver.session.SaTokenSubjectVerifier;
 import com.nageoffer.ai.ragent.authserver.user.AuthUser;
 import com.nageoffer.ai.ragent.authserver.user.McpUserPrincipal;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationProvider;

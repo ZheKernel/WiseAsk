@@ -17,7 +17,6 @@
 
 package com.nageoffer.ai.ragent.ordermcp.security;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
 import io.modelcontextprotocol.common.McpTransportContext;
 
 import java.util.Map;

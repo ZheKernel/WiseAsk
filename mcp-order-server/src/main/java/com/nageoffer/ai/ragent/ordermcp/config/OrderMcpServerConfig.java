@@ -17,7 +17,7 @@
 
 package com.nageoffer.ai.ragent.ordermcp.config;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
+import com.nageoffer.ai.ragent.ordermcp.security.McpCallerIdentity;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpIdentityContext;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;

@@ -17,7 +17,6 @@
 
 package com.nageoffer.ai.ragent.ordermcp.security;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

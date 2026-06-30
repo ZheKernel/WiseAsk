@@ -17,7 +17,7 @@
 
 package com.nageoffer.ai.ragent.authserver.config;
 
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;

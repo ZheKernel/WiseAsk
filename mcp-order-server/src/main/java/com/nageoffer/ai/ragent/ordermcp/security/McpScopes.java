@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.mcpauth;
-
-import java.util.Set;
+package com.nageoffer.ai.ragent.ordermcp.security;
 
 /**
- * Verified caller identity propagated between Ragent and an MCP service.
+ * OAuth scopes accepted by the order MCP resource server.
  */
-public record McpCallerIdentity(
-        String userId,
-        String username,
-        String role,
-        Set<String> scopes,
-        String clientId) {
+public final class McpScopes {
 
-    public McpCallerIdentity {
-        scopes = scopes == null ? Set.of() : Set.copyOf(scopes);
-    }
+    public static final String DISCOVER = "mcp:discover";
+    public static final String ORDER_READ_SELF = "order:read:self";
+    public static final String ORDER_READ_ANY = "order:read:any";
 
-    public McpCallerIdentity(String userId, String username, String role) {
-        this(userId, username, role, Set.of(), null);
-    }
-
-    public boolean hasScope(String scope) {
-        return scopes.contains(scope);
+    private McpScopes() {
     }
 }

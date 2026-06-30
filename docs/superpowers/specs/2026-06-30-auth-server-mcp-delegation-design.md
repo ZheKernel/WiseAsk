@@ -379,17 +379,20 @@ GET /.well-known/oauth-protected-resource
 - 增加 Scope 判断，同时保留角色和 SQL 行级过滤。
 - 提供 OAuth Protected Resource Metadata。
 
-### 调整 `mcp-auth`
+### 收敛 `mcp-auth` 与示例 `mcp-server`
 
-保留：
+`mcp-auth` 只剩两个轻量类型，不再保留独立 Maven 模块：
 
-- MCP 调用者身份模型。
-- 公共 Scope 常量或授权上下文模型。
+- `McpCallerIdentity` 只由 Order MCP 在 JWT 验证完成后构建，因此迁入
+  `mcp-order-server` 的安全边界。
+- OAuth Scope 是跨服务协议值。`auth-server` 维护授予规则，`bootstrap` 维护请求值，
+  `mcp-order-server` 维护校验值；Scope 变更必须三端同步并运行聚焦测试。
+- 不让 Ragent 或 Order MCP 依赖可执行的 `auth-server` 模块，避免引入 Web、Redis、
+  JDBC 等无关传递依赖和错误的反向依赖。
+- 删除已无业务引用的天气、工单和销售示例 `mcp-server`，保留实际使用的
+  `mcp-order-server`。
 
-移除：
-
-- `McpIdentityTokenCodec` 的 HS256 签发和验证职责。
-- Ragent 与 Order MCP 共享 Secret 的配置依赖。
+原 `McpIdentityTokenCodec` 的 HS256 签发和验证职责以及共享 Secret 配置均已移除。
 
 ## 配置草案
 

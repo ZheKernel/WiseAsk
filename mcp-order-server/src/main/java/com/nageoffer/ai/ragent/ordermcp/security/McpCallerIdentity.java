@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.mcp;
+package com.nageoffer.ai.ragent.ordermcp.security;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import java.util.Set;
 
 /**
- * MCP Server 启动类
+ * Caller identity constructed only from a JWT verified by the order resource server.
  */
-@SpringBootApplication
-public class McpServerApplication {
+public record McpCallerIdentity(
+        String userId,
+        String username,
+        String role,
+        Set<String> scopes,
+        String clientId) {
 
-    public static void main(String[] args) {
-        SpringApplication.run(McpServerApplication.class, args);
+    public McpCallerIdentity {
+        scopes = scopes == null ? Set.of() : Set.copyOf(scopes);
+    }
+
+    public McpCallerIdentity(String userId, String username, String role) {
+        this(userId, username, role, Set.of(), null);
+    }
+
+    public boolean hasScope(String scope) {
+        return scopes.contains(scope);
     }
 }

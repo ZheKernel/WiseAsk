@@ -17,7 +17,6 @@
 
 package com.nageoffer.ai.ragent.ordermcp.security;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

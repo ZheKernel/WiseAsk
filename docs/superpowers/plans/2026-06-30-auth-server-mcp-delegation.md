@@ -623,7 +623,7 @@ intent_accuracy 未发生明显回退
 - [ ] 运行所有受影响模块测试。
 
 ```powershell
-.\mvnw.cmd -pl auth-server,mcp-auth,bootstrap,mcp-order-server -am `
+.\mvnw.cmd -pl auth-server,bootstrap,mcp-order-server -am `
   "-Dsurefire.failIfNoSpecifiedTests=false" "-DargLine= " "-DforkCount=0" test
 ```
 
@@ -661,3 +661,16 @@ Enforce order scopes and row-level authorization
 Remove legacy shared-secret MCP authentication
 Document OAuth MCP deployment and verification
 ```
+
+---
+
+## Task 10：收敛 MCP 模块结构
+
+- [x] 删除无外部引用的示例 `mcp-server`。
+- [x] 删除只包含两个类型的 `mcp-auth` Maven 模块。
+- [x] 将 `McpCallerIdentity` 迁入 `mcp-order-server` 安全边界。
+- [x] 在 `auth-server`、`bootstrap`、`mcp-order-server` 内分别维护 Scope
+  授予、请求和校验常量。
+- [x] 移除三个业务模块对 `mcp-auth` 的 Maven 依赖。
+- [x] 运行 Auth Server、Ragent MCP Client 和 Order MCP 聚焦测试。
+- [x] 检查 Reactor、README、项目地图和启动文档不再引用已删除模块。

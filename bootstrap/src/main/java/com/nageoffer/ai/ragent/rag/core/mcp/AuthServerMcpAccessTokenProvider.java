@@ -18,7 +18,6 @@
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
 import com.nageoffer.ai.ragent.rag.config.McpAuthorizationProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;

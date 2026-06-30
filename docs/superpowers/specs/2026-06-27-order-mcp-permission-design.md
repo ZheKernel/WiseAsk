@@ -18,7 +18,7 @@ distinguish administrators from normal users or enforce row ownership.
 
 ## Module Layout
 
-### `mcp-auth`
+### `mcp-auth`（历史设计）
 
 A lightweight shared module containing:
 
@@ -27,6 +27,10 @@ A lightweight shared module containing:
 - issuer, audience, expiry and role validation
 
 It has no dependency on Ragent login state or the order database.
+
+> This module was removed on 2026-06-30 after the OAuth migration. The verified
+> caller model now belongs to `mcp-order-server`; each service owns the Scope
+> constants needed at its protocol boundary.
 
 ### `mcp-order-server`
 

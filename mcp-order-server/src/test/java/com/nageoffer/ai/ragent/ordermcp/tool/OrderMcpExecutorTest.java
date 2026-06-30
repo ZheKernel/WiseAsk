@@ -18,10 +18,10 @@
 package com.nageoffer.ai.ragent.ordermcp.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderQueryCriteria;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderQueryService;
+import com.nageoffer.ai.ragent.ordermcp.security.McpCallerIdentity;
+import com.nageoffer.ai.ragent.ordermcp.security.McpScopes;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpIdentityContext;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;

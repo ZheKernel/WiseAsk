@@ -20,7 +20,7 @@ package com.nageoffer.ai.ragent.authserver.tokenexchange;
 import com.nageoffer.ai.ragent.authserver.config.AuthServerProperties;
 import com.nageoffer.ai.ragent.authserver.session.SaTokenSubjectVerifier;
 import com.nageoffer.ai.ragent.authserver.user.AuthUser;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;

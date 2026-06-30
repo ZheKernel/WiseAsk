@@ -17,7 +17,7 @@
 
 package com.nageoffer.ai.ragent.ordermcp.order;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
+import com.nageoffer.ai.ragent.ordermcp.security.McpCallerIdentity;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

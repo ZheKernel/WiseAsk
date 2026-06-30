@@ -19,10 +19,10 @@ package com.nageoffer.ai.ragent.ordermcp.tool;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderQueryCriteria;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderQueryService;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderRecord;
+import com.nageoffer.ai.ragent.ordermcp.security.McpCallerIdentity;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpAuthorizationException;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpIdentityContext;
 import io.modelcontextprotocol.server.McpServerFeatures;

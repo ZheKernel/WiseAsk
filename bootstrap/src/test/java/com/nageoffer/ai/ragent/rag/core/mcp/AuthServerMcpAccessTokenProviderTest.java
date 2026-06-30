@@ -17,7 +17,6 @@
 
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
 import com.nageoffer.ai.ragent.rag.config.McpAuthorizationProperties;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

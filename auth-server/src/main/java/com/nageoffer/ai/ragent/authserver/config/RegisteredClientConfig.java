@@ -17,7 +17,7 @@
 
 package com.nageoffer.ai.ragent.authserver.config;
 
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;

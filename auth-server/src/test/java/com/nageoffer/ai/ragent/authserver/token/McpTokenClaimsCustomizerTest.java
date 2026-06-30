@@ -21,7 +21,7 @@ import com.nageoffer.ai.ragent.authserver.config.AuthServerProperties;
 import com.nageoffer.ai.ragent.authserver.config.JwkSourceConfig;
 import com.nageoffer.ai.ragent.authserver.user.AuthUser;
 import com.nageoffer.ai.ragent.authserver.user.McpUserPrincipal;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;

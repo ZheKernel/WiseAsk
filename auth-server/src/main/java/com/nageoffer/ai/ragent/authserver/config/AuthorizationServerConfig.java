@@ -20,7 +20,7 @@ package com.nageoffer.ai.ragent.authserver.config;
 import com.nageoffer.ai.ragent.authserver.client.ClientAssertionReplayStore;
 import com.nageoffer.ai.ragent.authserver.token.McpTokenClaimsCustomizer;
 import com.nageoffer.ai.ragent.authserver.tokenexchange.McpTokenExchangeAuthenticationProvider;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.authserver.security.McpScopes;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;

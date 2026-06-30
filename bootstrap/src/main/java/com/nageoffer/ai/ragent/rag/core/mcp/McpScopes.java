@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.mcpauth;
+package com.nageoffer.ai.ragent.rag.core.mcp;
 
 /**
- * Shared OAuth scopes used by Ragent and MCP resource servers.
+ * OAuth scope values requested by the Ragent MCP client.
  */
-public final class McpScopes {
+final class McpScopes {
 
-    public static final String DISCOVER = "mcp:discover";
-    public static final String ORDER_READ_SELF = "order:read:self";
-    public static final String ORDER_READ_ANY = "order:read:any";
+    static final String DISCOVER = "mcp:discover";
+    static final String ORDER_READ_SELF = "order:read:self";
+    static final String ORDER_READ_ANY = "order:read:any";
 
     private McpScopes() {
     }

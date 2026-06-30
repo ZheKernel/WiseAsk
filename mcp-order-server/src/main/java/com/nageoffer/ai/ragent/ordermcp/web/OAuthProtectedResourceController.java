@@ -17,7 +17,7 @@
 
 package com.nageoffer.ai.ragent.ordermcp.web;
 
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
+import com.nageoffer.ai.ragent.ordermcp.security.McpScopes;
 import com.nageoffer.ai.ragent.ordermcp.config.OrderMcpAuthProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

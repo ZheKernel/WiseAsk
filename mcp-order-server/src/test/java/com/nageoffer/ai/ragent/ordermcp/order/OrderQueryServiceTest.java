@@ -17,9 +17,9 @@
 
 package com.nageoffer.ai.ragent.ordermcp.order;
 
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
-import com.nageoffer.ai.ragent.mcpauth.McpScopes;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpAuthorizationException;
+import com.nageoffer.ai.ragent.ordermcp.security.McpCallerIdentity;
+import com.nageoffer.ai.ragent.ordermcp.security.McpScopes;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpAuthorizationService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
