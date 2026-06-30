@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.mcpauth;
+package com.nageoffer.ai.ragent.rag.core.mcp;
 
-public class McpIdentityAuthenticationException extends RuntimeException {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    public McpIdentityAuthenticationException(String message) {
-        super(message);
-    }
+class McpSubjectTokenContextTest {
 
-    public McpIdentityAuthenticationException(String message, Throwable cause) {
-        super(message, cause);
+    @Test
+    void shouldRequireAndClearCurrentSubjectToken() {
+        McpSubjectTokenContext context = new McpSubjectTokenContext();
+        context.set("sa-session-token");
+
+        Assertions.assertEquals("sa-session-token", context.requireToken());
+
+        context.clear();
+        Assertions.assertThrows(IllegalStateException.class, context::requireToken);
     }
 }

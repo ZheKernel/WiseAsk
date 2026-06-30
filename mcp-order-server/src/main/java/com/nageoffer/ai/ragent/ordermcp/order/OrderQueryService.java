@@ -18,7 +18,7 @@
 package com.nageoffer.ai.ragent.ordermcp.order;
 
 import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
-import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpAuthorizationException;
+import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -29,23 +29,22 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OrderQueryService {
 
-    private static final String ROLE_ADMIN = "admin";
-    private static final String ROLE_USER = "user";
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 100;
 
     private final OrderRepository orderRepository;
+    private final OrderMcpAuthorizationService authorizationService;
 
     public List<OrderRecord> listMine(McpCallerIdentity caller, OrderQueryCriteria criteria) {
-        requireOrderUser(caller);
+        authorizationService.requireSelfRead(caller);
         return orderRepository.findByUserId(caller.userId(), normalize(criteria, null));
     }
 
     public Optional<OrderRecord> findDetail(McpCallerIdentity caller, String orderNo) {
-        requireOrderUser(caller);
-        if (isAdmin(caller)) {
+        if (authorizationService.canReadAny(caller)) {
             return orderRepository.findByOrderNo(requireText(orderNo, "orderNo"));
         }
+        authorizationService.requireSelfRead(caller);
         return orderRepository.findByOrderNoAndUserId(
                 requireText(orderNo, "orderNo"),
                 caller.userId()
@@ -53,9 +52,7 @@ public class OrderQueryService {
     }
 
     public List<OrderRecord> adminSearch(McpCallerIdentity caller, OrderQueryCriteria criteria) {
-        if (!isAdmin(caller)) {
-            throw new OrderMcpAuthorizationException("Administrator role is required");
-        }
+        authorizationService.requireAdminReadAny(caller);
         String userId = criteria == null ? null : trimToNull(criteria.userId());
         return orderRepository.searchAll(normalize(criteria, userId));
     }
@@ -84,17 +81,6 @@ public class OrderQueryService {
                 value.endDate(),
                 limit
         );
-    }
-
-    private void requireOrderUser(McpCallerIdentity caller) {
-        if (caller == null || trimToNull(caller.userId()) == null
-                || (!isAdmin(caller) && !ROLE_USER.equalsIgnoreCase(caller.role()))) {
-            throw new OrderMcpAuthorizationException("Order query is not allowed for this caller");
-        }
-    }
-
-    private boolean isAdmin(McpCallerIdentity caller) {
-        return caller != null && ROLE_ADMIN.equalsIgnoreCase(caller.role());
     }
 
     private String requireText(String value, String field) {

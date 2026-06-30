@@ -15,23 +15,11 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.rag.config;
+package com.nageoffer.ai.ragent.authserver.client;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
+import java.time.Instant;
 
-/**
- * Internal identity token settings for authenticated MCP servers.
- */
-@Data
-@Configuration
-@ConfigurationProperties(prefix = "rag.mcp.identity")
-public class McpIdentityProperties {
+public interface ClientAssertionReplayStore {
 
-    private String secret;
-
-    private String issuer = "ragent";
-
-    private long ttlSeconds = 300L;
+    boolean markIfAbsent(String clientId, String tokenId, Instant expiresAt);
 }

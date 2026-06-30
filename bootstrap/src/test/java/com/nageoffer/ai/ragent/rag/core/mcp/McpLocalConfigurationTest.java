@@ -30,11 +30,8 @@ import java.util.List;
 
 class McpLocalConfigurationTest {
 
-    private static final String LOCAL_SIGNING_KEY =
-            "ragent-local-order-mcp-signing-key-32-bytes";
-
     @Test
-    void shouldEnableOrderMcpWithMatchingLocalSigningKey() throws IOException {
+    void shouldEnableOrderMcpWithAuthServerTokenEndpoint() throws IOException {
         List<PropertySource<?>> yamlSources = new YamlPropertySourceLoader()
                 .load("application", new ClassPathResource("application.yaml"));
         MutablePropertySources propertySources = new MutablePropertySources();
@@ -46,8 +43,8 @@ class McpLocalConfigurationTest {
                 resolver.getProperty("rag.mcp.servers[1].enabled", Boolean.class)
         );
         Assertions.assertEquals(
-                LOCAL_SIGNING_KEY,
-                resolver.getProperty("rag.mcp.identity.secret")
+                "http://localhost:9200/oauth2/token",
+                resolver.getProperty("rag.mcp.authorization.token-uri")
         );
         Assertions.assertEquals(
                 "order-mcp",

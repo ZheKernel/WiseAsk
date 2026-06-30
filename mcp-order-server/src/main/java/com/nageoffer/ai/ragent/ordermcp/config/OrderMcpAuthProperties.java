@@ -26,9 +26,11 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "order-mcp.auth")
 public class OrderMcpAuthProperties {
 
-    private String secret;
-
-    private String issuer = "ragent";
+    private String issuer = "http://localhost:9200";
 
     private String audience = "order-mcp";
+
+    private String jwkSetUri = "http://localhost:9200/oauth2/jwks";
+
+    private String resource = "http://localhost:9100";
 }

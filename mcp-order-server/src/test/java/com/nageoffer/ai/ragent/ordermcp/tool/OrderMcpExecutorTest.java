@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.ordermcp.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
+import com.nageoffer.ai.ragent.mcpauth.McpScopes;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderQueryCriteria;
 import com.nageoffer.ai.ragent.ordermcp.order.OrderQueryService;
 import com.nageoffer.ai.ragent.ordermcp.security.OrderMcpIdentityContext;
@@ -69,7 +70,13 @@ class OrderMcpExecutorTest {
         OrderQueryService queryService = mock(OrderQueryService.class);
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         OrderMcpExecutor executor = new OrderMcpExecutor(queryService, objectMapper);
-        McpCallerIdentity caller = new McpCallerIdentity("user-1", "alice", "user");
+        McpCallerIdentity caller = new McpCallerIdentity(
+                "user-1",
+                "alice",
+                "user",
+                Set.of(McpScopes.ORDER_READ_SELF),
+                "ragent"
+        );
         McpSyncServerExchange exchange = exchange(caller);
         when(queryService.listMine(same(caller), any())).thenReturn(List.of());
 

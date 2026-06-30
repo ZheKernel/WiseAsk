@@ -56,9 +56,7 @@ public class McpClientToolExecutor implements McpToolExecutor {
             Map<String, Object> args = parameters != null ? parameters : Map.of();
             CallToolResult result;
             if (authEnabled) {
-                String token = identityTokenService.issue(caller, audience);
-                result = requestIdentityContext.withToken(token,
-                        () -> mcpClient.callTool(new CallToolRequest(toolDefinition.name(), args)));
+                result = callAuthenticated(args, caller);
             } else {
                 result = mcpClient.callTool(new CallToolRequest(toolDefinition.name(), args));
             }
@@ -77,5 +75,28 @@ public class McpClientToolExecutor implements McpToolExecutor {
                     .isError(true)
                     .build();
         }
+    }
+
+    private CallToolResult callAuthenticated(Map<String, Object> args, LoginUser caller) {
+        try {
+            return callWithToken(args, identityTokenService.issue(caller, audience));
+        } catch (RuntimeException ex) {
+            if (!isUnauthorized(ex)) {
+                throw ex;
+            }
+            identityTokenService.invalidate(caller, audience);
+            return callWithToken(args, identityTokenService.issue(caller, audience));
+        }
+    }
+
+    private CallToolResult callWithToken(Map<String, Object> args, String token) {
+        return requestIdentityContext.withToken(token,
+                () -> mcpClient.callTool(new CallToolRequest(toolDefinition.name(), args)));
+    }
+
+    private boolean isUnauthorized(RuntimeException ex) {
+        String message = ex.getMessage();
+        return message != null
+                && (message.contains("401") || message.toLowerCase().contains("unauthorized"));
     }
 }

@@ -25,12 +25,11 @@ class OrderMcpSecurityConfigTest {
     @Test
     void shouldRejectBlankAudienceAtStartup() {
         OrderMcpAuthProperties properties = new OrderMcpAuthProperties();
-        properties.setSecret("test-order-mcp-shared-secret-value-123456");
         properties.setAudience(" ");
 
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> new OrderMcpSecurityConfig().mcpIdentityTokenCodec(properties)
+                () -> new OrderMcpSecurityConfig().orderMcpJwtDecoder(properties)
         );
     }
 }

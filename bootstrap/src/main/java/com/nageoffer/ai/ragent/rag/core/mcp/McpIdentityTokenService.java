@@ -18,56 +18,37 @@
 package com.nageoffer.ai.ragent.rag.core.mcp;
 
 import com.nageoffer.ai.ragent.framework.context.LoginUser;
-import com.nageoffer.ai.ragent.mcpauth.McpCallerIdentity;
-import com.nageoffer.ai.ragent.mcpauth.McpIdentityTokenCodec;
-import com.nageoffer.ai.ragent.rag.config.McpIdentityProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-
 /**
- * Creates audience-bound identities for remote MCP requests.
+ * Adapts the MCP client to Auth Server issued access tokens.
  */
 @Service
 @RequiredArgsConstructor
 public class McpIdentityTokenService {
 
-    private static final McpCallerIdentity SERVICE_IDENTITY =
-            new McpCallerIdentity("ragent-service", "ragent-service", "system");
-
-    private final McpIdentityProperties properties;
-
-    private volatile McpIdentityTokenCodec codec;
+    private final McpSubjectTokenContext subjectTokenContext;
+    private final McpAccessTokenProvider accessTokenProvider;
 
     public String issue(LoginUser user, String audience) {
         if (user == null) {
             throw new IllegalArgumentException("MCP caller must not be null");
         }
-        return codec().issue(
-                new McpCallerIdentity(user.getUserId(), user.getUsername(), user.getRole()),
-                audience
-        );
+        return accessTokenProvider
+                .userToken(subjectTokenContext.requireToken(), audience, user.getRole())
+                .value();
     }
 
     public String issueServiceIdentity(String audience) {
-        return codec().issue(SERVICE_IDENTITY, audience);
+        return accessTokenProvider.serviceToken(audience).value();
     }
 
-    private McpIdentityTokenCodec codec() {
-        McpIdentityTokenCodec current = codec;
-        if (current != null) {
-            return current;
-        }
-        synchronized (this) {
-            if (codec == null) {
-                codec = new McpIdentityTokenCodec(
-                        properties.getSecret(),
-                        properties.getIssuer(),
-                        Duration.ofSeconds(properties.getTtlSeconds())
-                );
-            }
-            return codec;
-        }
+    public void invalidate(LoginUser user, String audience) {
+        accessTokenProvider.invalidateUserToken(
+                subjectTokenContext.requireToken(),
+                audience,
+                user.getRole()
+        );
     }
 }

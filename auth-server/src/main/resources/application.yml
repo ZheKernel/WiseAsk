@@ -1,0 +1,42 @@
+server:
+  address: localhost
+  port: 9200
+
+spring:
+  application:
+    name: ragent-auth-server
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/ragent}
+    username: ${AUTH_DB_USERNAME:postgres}
+    password: ${AUTH_DB_PASSWORD:postgres}
+  data:
+    redis:
+      host: ${AUTH_REDIS_HOST:127.0.0.1}
+      port: ${AUTH_REDIS_PORT:6379}
+      password: ${AUTH_REDIS_PASSWORD:123456}
+
+sa-token:
+  token-name: Authorization
+  timeout: 2592000
+  is-concurrent: true
+  is-share: false
+  token-style: simple-uuid
+  is-log: false
+  is-print: false
+
+auth-server:
+  issuer: ${AUTH_SERVER_ISSUER:http://localhost:9200}
+  order-audience: ${ORDER_MCP_AUDIENCE:order-mcp}
+  access-token-ttl-seconds: 300
+  key-store-path: ${AUTH_SERVER_KEYSTORE_PATH:}
+  key-store-password: ${AUTH_SERVER_KEYSTORE_PASSWORD:}
+  key-alias: ${AUTH_SERVER_KEY_ALIAS:}
+  clients:
+    - client-id: ${RAGENT_OAUTH_CLIENT_ID:ragent}
+      client-name: Ragent
+      jwk-set-uri: ${RAGENT_CLIENT_JWK_SET_URI:http://localhost:9090/api/ragent/.well-known/oauth-client-jwks}
+      scopes:
+        - mcp:discover
+        - order:read:self
+        - order:read:any

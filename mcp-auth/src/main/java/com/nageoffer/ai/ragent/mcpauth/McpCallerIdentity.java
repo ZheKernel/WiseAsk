@@ -17,8 +17,27 @@
 
 package com.nageoffer.ai.ragent.mcpauth;
 
+import java.util.Set;
+
 /**
  * Verified caller identity propagated between Ragent and an MCP service.
  */
-public record McpCallerIdentity(String userId, String username, String role) {
+public record McpCallerIdentity(
+        String userId,
+        String username,
+        String role,
+        Set<String> scopes,
+        String clientId) {
+
+    public McpCallerIdentity {
+        scopes = scopes == null ? Set.of() : Set.copyOf(scopes);
+    }
+
+    public McpCallerIdentity(String userId, String username, String role) {
+        this(userId, username, role, Set.of(), null);
+    }
+
+    public boolean hasScope(String scope) {
+        return scopes.contains(scope);
+    }
 }
